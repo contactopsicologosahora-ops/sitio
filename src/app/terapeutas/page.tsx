@@ -15,7 +15,8 @@ const TERAPEUTAS = [
         rating: 4.9,
         reviews: 124,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Esteban",
-        tags: ["Ansiedad", "Depresión", "Estrés", "Duelos", "Autoestima", "Trauma"]
+        tags: ["Ansiedad", "Depresión", "Estrés", "Duelos", "Autoestima", "Trauma"],
+        availability: "Alta" // Point 3: Load Balancing
     },
     {
         id: 2,
@@ -27,7 +28,8 @@ const TERAPEUTAS = [
         rating: 5.0,
         reviews: 86,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Paola",
-        tags: ["Ansiedad", "Depresión", "Autoestima", "Fobias", "Duelos"]
+        tags: ["Ansiedad", "Depresión", "Autoestima", "Fobias", "Duelos"],
+        availability: "Media"
     },
     {
         id: 3,
@@ -39,7 +41,8 @@ const TERAPEUTAS = [
         rating: 4.8,
         reviews: 64,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Manuel",
-        tags: ["Depresión", "TCA", "Obsesión", "Neurodivergencias"]
+        tags: ["Depresión", "TCA", "Obsesión", "Neurodivergencias"],
+        availability: "Alta"
     },
     {
         id: 4,
@@ -51,7 +54,8 @@ const TERAPEUTAS = [
         rating: 4.9,
         reviews: 92,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver",
-        tags: ["Pareja", "Duelo", "TCA", "Disfunciones sexuales"]
+        tags: ["Pareja", "Duelo", "TCA", "Disfunciones sexuales"],
+        availability: "Baja"
     },
     {
         id: 5,
@@ -63,7 +67,8 @@ const TERAPEUTAS = [
         rating: 4.7,
         reviews: 78,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Francisca",
-        tags: ["Estrés", "Ansiedad social", "Duelo", "Crianza"]
+        tags: ["Estrés", "Ansiedad social", "Duelo", "Crianza"],
+        availability: "Media"
     },
     {
         id: 6,
@@ -75,7 +80,8 @@ const TERAPEUTAS = [
         rating: 5.0,
         reviews: 110,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Juan",
-        tags: ["Depresión", "Ansiedad", "Ideación Suicida", "Inseguridades"]
+        tags: ["Depresión", "Ansiedad", "Ideación Suicida", "Inseguridades"],
+        availability: "Alta"
     },
     {
         id: 7,
@@ -87,7 +93,8 @@ const TERAPEUTAS = [
         rating: 4.8,
         reviews: 55,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marlene",
-        tags: ["TCA", "Depresión", "Crisis de Pánico", "Sueño"]
+        tags: ["TCA", "Depresión", "Crisis de Pánico", "Sueño"],
+        availability: "Baja"
     },
     {
         id: 8,
@@ -99,7 +106,8 @@ const TERAPEUTAS = [
         rating: 4.9,
         reviews: 84,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Veronica",
-        tags: ["Estrés", "Autoestima", "Duelo", "Psicoeducación"]
+        tags: ["Estrés", "Autoestima", "Duelo", "Psicoeducación"],
+        availability: "Alta"
     }
 ];
 
@@ -113,6 +121,12 @@ export default function Terapeutas() {
     };
 
     const closeModal = () => setSelectedTherapist(null);
+
+    // Point 3: Load Balancing - Sort therapists to show high availability first
+    const sortedTherapists = [...TERAPEUTAS].sort((a, b) => {
+        const order: any = { "Alta": 1, "Media": 2, "Baja": 3 };
+        return order[a.availability] - order[b.availability];
+    });
 
     return (
         <>
@@ -135,12 +149,26 @@ export default function Terapeutas() {
                 </section>
 
                 <div style={{ padding: '2rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
-                    {TERAPEUTAS.map(t => (
+                    {sortedTherapists.map(t => (
                         <div key={t.id} className="expert-card" style={{ display: 'flex', flexDirection: 'column' }}>
                             <div style={{ position: 'relative', height: '240px', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
                                 <img src={t.image} alt={t.name} style={{ width: '180px', height: '180px' }} />
-                                <div style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--white)', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <ShieldCheck size={14} color="#27ae60" /> Especialista Verificado
+
+                                <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                                    <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--white)', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <ShieldCheck size={14} color="#27ae60" /> Especialista Verificado
+                                    </div>
+
+                                    {t.availability === "Alta" && (
+                                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--primary)', color: '#fff', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <Clock size={12} /> Disponibilidad Inmediata
+                                        </div>
+                                    )}
+                                    {t.availability === "Baja" && (
+                                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: '#f0efeb', color: 'var(--text-soft)', boxShadow: 'var(--shadow-sm)' }}>
+                                            Agenda Llenándose
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

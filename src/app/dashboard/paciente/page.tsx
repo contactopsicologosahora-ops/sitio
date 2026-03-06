@@ -38,9 +38,28 @@ export default function PacienteDashboard() {
                     </div>
                 )}
 
-                <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '3rem' }}>
+                <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '3rem' }}>
                     {/* Main Content Area */}
                     <div>
+
+                        {/* 5. Post-Session Cross-Sell */}
+                        <div style={{ marginBottom: '3rem', backgroundColor: '#fff', borderLeft: '4px solid var(--primary)', padding: '1.5rem', borderRadius: '0 var(--radius-md) var(--radius-md) 0', boxShadow: 'var(--shadow-sm)' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                                <div style={{ padding: '0.5rem', backgroundColor: '#f0f4f8', borderRadius: '50%' }}>
+                                    <Info size={24} color="var(--primary)" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Sobre tu última sesión...</h3>
+                                    <p style={{ color: 'var(--text-soft)', marginBottom: '1rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                                        Tu terapeuta sugirió que trabajar en la <strong>comunicación asertiva</strong> será clave para esta semana. Hemos desbloqueado un módulo especial para ti.
+                                    </p>
+                                    <button className="secondary-btn" style={{ fontSize: '0.85rem', padding: '0.6rem 1rem' }}>
+                                        Leer Módulo Recomendado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <h2 style={{ fontSize: '1.8rem', marginBottom: '2rem', color: 'var(--primary)' }}>Tu Próxima Sesión</h2>
 
                         <div className="glass-morphism" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
@@ -79,33 +98,49 @@ export default function PacienteDashboard() {
                     <div>
                         <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--primary)' }}>Botiquín Emocional</h3>
 
-                        <div className="expert-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                        {/* Freemium Tool 1 */}
+                        <div className="expert-card" style={{ padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--accent)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
                                 <div style={{ padding: '0.5rem', backgroundColor: 'var(--accent-light)', borderRadius: '8px' }}>
                                     <Sparkles size={18} color="var(--accent)" />
                                 </div>
-                                <div>
+                                <div style={{ flex: 1 }}>
                                     <h4 style={{ fontSize: '1rem' }}>Simulador de Diálogos</h4>
                                     <span style={{ fontSize: '0.75rem', color: '#2ecc71', fontWeight: '700' }}>Recomendado por tu terapeuta</span>
                                 </div>
                             </div>
-                            <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                                Practica esa conversación difícil con nuestra IA adaptativa antes de tenerla en la vida real.
+                            <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                Practica esa conversación difícil con nuestra IA adaptativa antes de tenerla.
                             </p>
-                            <button className="secondary-btn" style={{ width: '100%', padding: '0.8rem' }}>Abrir Herramienta</button>
+
+                            <div style={{ backgroundColor: '#f0efeb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', textAlign: 'center' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--primary)' }}>🎁 Tienes 1 prueba gratuita disponible</span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button className="premium-btn" style={{ flex: 2, padding: '0.8rem', fontSize: '0.85rem', justifyContent: 'center' }}>Probar Gratis</button>
+                            </div>
                         </div>
 
-                        <div className="expert-card" style={{ padding: '1.5rem' }}>
+                        {/* Freemium Tool 2 (Locked/Subscribed) */}
+                        <div className="expert-card" style={{ padding: '1.5rem', backgroundColor: '#f9f9f9', opacity: 0.9 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
-                                <div style={{ padding: '0.5rem', backgroundColor: 'var(--accent-light)', borderRadius: '8px' }}>
-                                    <Activity size={18} color="var(--accent)" />
+                                <div style={{ padding: '0.5rem', backgroundColor: '#eee', borderRadius: '8px' }}>
+                                    <Activity size={18} color="var(--text-soft)" />
                                 </div>
-                                <h4 style={{ fontSize: '1rem' }}>Santuario Cognitivo</h4>
+                                <div>
+                                    <h4 style={{ fontSize: '1rem', color: 'var(--text-soft)' }}>Santuario Cognitivo</h4>
+                                </div>
                             </div>
-                            <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                                Diario guiado por IA para identificar y reformular pensamientos automáticos durante la semana.
+                            <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                                Diario guiado por IA para identificar pensamientos automáticos (Requiere suscripción).
                             </p>
-                            <button className="secondary-btn" style={{ width: '100%', padding: '0.8rem' }}>Explorar Herramienta</button>
+                            <button style={{
+                                width: '100%', padding: '0.8rem', backgroundColor: '#fff', border: '1px solid #ddd',
+                                borderRadius: '50px', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem'
+                            }}>
+                                Desbloquear (Mensualidad)
+                            </button>
                         </div>
                     </div>
                 </div>
