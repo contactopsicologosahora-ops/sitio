@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, RefreshCcw } from "lucide-react";
+import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, RefreshCcw, Stethoscope, MessageSquare, ShieldAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function TherapistDashboard() {
@@ -72,6 +72,12 @@ export default function TherapistDashboard() {
                         >
                             <Calendar size={20} /> Mi Agenda
                         </button>
+                        <button
+                            onClick={() => setActiveTab("comunidad")}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "comunidad" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "comunidad" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                        >
+                            <ShieldAlert size={20} /> Peer Assist
+                        </button>
                     </nav>
 
                     <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
@@ -141,6 +147,9 @@ export default function TherapistDashboard() {
                                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                             <button onClick={() => updateStatus(lead.id, 'Paciente')} title="Marcar como Paciente" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#198754' }}><CheckCircle size={20} /></button>
                                                             <button onClick={() => updateStatus(lead.id, 'Perdido')} title="Marcar como Perdido" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc3545' }}><XCircle size={20} /></button>
+                                                            {lead.status === 'Paciente' && (
+                                                                <button onClick={() => alert(`Enviando acceso gratuito de la "Farmacia IA" a ${lead.name}...\n(Herramienta: Santuario Cognitivo)`)} title="Prescribir IA" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary)' }}><Stethoscope size={20} /></button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -228,6 +237,46 @@ export default function TherapistDashboard() {
                                 </div>
                                 <div style={{ marginTop: '3rem', textAlign: 'right' }}>
                                     <button className="premium-btn">Guardar Disponibilidad</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "comunidad" && (
+                        <div className="animate-fade">
+                            <header style={{ marginBottom: '3rem' }}>
+                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Peer Assist & Supervisión</h1>
+                                <p style={{ color: 'var(--text-soft)' }}>Foro clínico anonimizado exclusivo para especialistas verificados de la red.</p>
+                            </header>
+
+                            <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', marginBottom: '2rem' }}>
+                                    <div style={{ padding: '1rem', backgroundColor: '#e8f5e9', borderRadius: '50%' }}>
+                                        <ShieldAlert size={32} color="#27ae60" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Botón de Pánico Académico</h3>
+                                        <p style={{ color: 'var(--text-soft)', lineHeight: 1.6, maxWidth: '600px' }}>
+                                            ¿Atascado en un caso complejo? Solicita "Supervisión Flash". Describe la situación anonimizada (sin nombres ni datos identificables) y colegas senior o psiquiatras de nuestra red te dejarán su impresión diagnóstica en menos de 24 horas.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => alert("Abriendo formulario seguro de Supervisión Flash...")} className="premium-btn" style={{ padding: '1rem 2rem' }}>
+                                    <MessageSquare size={18} style={{ marginRight: '0.5rem' }} /> Solicitar Supervisión de Caso
+                                </button>
+
+                                <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '3rem 0' }} />
+
+                                <h4 style={{ marginBottom: '1.5rem', color: 'var(--text-light)' }}>Casos Recientes en Discusión</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ padding: '1.5rem', border: '1px solid #eee', borderRadius: '12px', borderLeft: '4px solid #f39c12' }}>
+                                        <h5 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Caso #842: Resistencia al encuadre en paciente TLP</h5>
+                                        <p style={{ fontSize: '0.9rem', color: 'var(--text-soft)', marginBottom: '1rem' }}>Paciente de 24 años presenta múltiples crisis durante la semana exigiendo contacto constante...</p>
+                                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '600' }}>
+                                            <span>3 Comentarios de Especialistas</span>
+                                            <span>• Hace 2 horas</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
