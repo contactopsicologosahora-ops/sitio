@@ -142,6 +142,15 @@ export default function Terapeutas() {
                         cursor: 'pointer'
                     }}>Buscar</button>
                 </div>
+
+                <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '500', fontSize: '0.9rem' }}>
+                        <CheckCircle size={18} color="var(--accent)" /> Valores transparentes
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '500', fontSize: '0.9rem' }}>
+                        <CheckCircle size={18} color="var(--accent)" /> Emitimos boleta para reembolso en tu sistema de salud
+                    </div>
+                </div>
             </section>
 
             <div style={{ padding: '4rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>

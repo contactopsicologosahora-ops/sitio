@@ -84,7 +84,14 @@ export default function MatchingQuiz() {
                         <Heart style={{ color: '#2ecc71' }} size={30} />
                     </div>
                     <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Perfil Completado</h2>
-                    <p style={{ color: 'var(--text-soft)', marginBottom: '2.5rem' }}>Basado en tu enfoque de <strong>{answers[0]}</strong> y preferencia <strong>{answers[1]}</strong>, hemos filtrado a los mejores candidatos.</p>
+                    <div style={{ backgroundColor: 'var(--bg-serene)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '2.5rem', border: '1px solid #eee', textAlign: 'left' }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.8rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Sparkles size={18} color="var(--accent)" /> ¿Por qué estas recomendaciones?
+                        </h3>
+                        <p style={{ color: 'var(--text-soft)', fontSize: '0.95rem', lineHeight: '1.6' }}>
+                            Mencionaste que estás experimentando <strong>{answers[0]?.toLowerCase() || "dificultades"}</strong> y prefieres una dinámica <strong>{answers[1]?.toLowerCase() || "clínica"}</strong>. Nuestro sistema ha seleccionado a los terapeutas con años de formación y éxito comprobado manejando tu situación específica.
+                        </p>
+                    </div>
 
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                         <a href="/terapeutas" className="premium-btn">Ver mis Recomendaciones <ArrowRight size={18} /></a>
