@@ -86,7 +86,10 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
   }
 
   return (
-    <div className="glass-morphism animate-fade" style={{
+    <div className="animate-fade" style={{
+      backgroundColor: 'var(--white)',
+      boxShadow: 'var(--shadow-lg)',
+      border: '1px solid rgba(0,0,0,0.05)',
       maxWidth: '600px',
       width: '95%',
       padding: '4rem',
