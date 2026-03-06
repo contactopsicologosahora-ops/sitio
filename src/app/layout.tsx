@@ -25,16 +25,18 @@ export default function RootLayout({
                     zIndex: 100,
                     padding: '1.2rem 8%',
                     display: 'flex',
+                    flexWrap: 'wrap',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    borderBottom: '1px solid rgba(0,0,0,0.05)'
+                    borderBottom: '1px solid rgba(0,0,0,0.05)',
+                    gap: '1rem'
                 }}>
                     <div style={{ fontSize: '1.4rem', fontWeight: '600', color: 'var(--primary)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></span>
-                        Psicólogos <span className="serif-font" style={{ fontWeight: '400', fontStyle: 'italic', marginLeft: '0.2rem' }}>Ahora</span>
+                        Psicólogos <span className="serif-font hide-on-mobile" style={{ fontWeight: '400', fontStyle: 'italic', marginLeft: '0.2rem' }}>Ahora</span>
                     </div>
                     <nav>
-                        <ul style={{ display: 'flex', gap: '2.5rem', listStyle: 'none' }}>
+                        <ul style={{ display: 'flex', gap: '1.5rem', listStyle: 'none', flexWrap: 'wrap', justifyContent: 'center' }}>
                             <li><a href="/" style={{ fontSize: '0.95rem', fontWeight: '500' }}>Inicio</a></li>
                             <li><a href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500' }}>Expertos</a></li>
                             <li><a href="/dashboard/admin" style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>Admin</a></li>
@@ -43,7 +45,7 @@ export default function RootLayout({
                 </header>
                 <main>{children}</main>
                 <footer style={{ padding: '5rem 8% 3rem', backgroundColor: '#faf9f6', borderTop: '1px solid #f0efeb' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '4rem' }}>
+                    <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '4rem' }}>
                         <div>
                             <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem' }}>Psicólogos Ahora</h3>
                             <p style={{ color: 'var(--text-soft)', maxWidth: '300px' }}>Comprometidos con la salud mental a través de un acompañamiento clínico de excelencia y ético.</p>

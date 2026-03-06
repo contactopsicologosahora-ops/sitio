@@ -118,14 +118,14 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       <div className="animate-fade" key={step}>
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>1. ¿Para cuándo necesitas la sesión?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Para cuándo necesitas la sesión?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {["Lo antes posible (Urgente)", "Esta semana", "Próxima semana"].map(opt => (
                 <button
                   key={opt}
                   onClick={() => { setFormData({ ...formData, urgency: opt }); handleNext(); }}
                   className="secondary-btn"
-                  style={{ textAlign: 'left', padding: '1.2rem 2rem', border: formData.urgency === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
+                  style={{ textAlign: 'left', padding: '1.2rem 1.5rem', border: formData.urgency === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
                 >
                   {opt}
                 </button>
@@ -136,14 +136,14 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
         {step === 2 && (
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>2. ¿Qué horario te acomodaría más?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>2. ¿Qué horario te acomodaría más?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {["Mañana (09:00 - 13:00)", "Tarde (14:00 - 18:00)", "Vespertino (19:00 - 21:00)"].map(opt => (
                 <button
                   key={opt}
                   onClick={() => { setFormData({ ...formData, timeRange: opt }); handleNext(); }}
                   className="secondary-btn"
-                  style={{ textAlign: 'left', padding: '1.2rem 2rem', border: formData.timeRange === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
+                  style={{ textAlign: 'left', padding: '1.2rem 1.5rem', border: formData.timeRange === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
                 >
                   {opt}
                 </button>
@@ -154,7 +154,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
         {step === 3 && (
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>3. ¿Cuál es tu nombre completo?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>3. ¿Cuál es tu nombre completo?</h2>
             <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
               <UserIcon style={{ color: 'var(--accent)', marginRight: '1rem' }} />
               <input
@@ -164,7 +164,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 onKeyDown={(e) => e.key === 'Enter' && formData.name && handleNext()}
                 placeholder="Escribe tu respuesta aquí..."
-                style={{ border: 'none', background: 'none', fontSize: '1.4rem', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+                style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
               />
             </div>
             <p style={{ marginTop: '1.5rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>Presiona ENTER para continuar</p>
@@ -173,7 +173,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
         {step === 4 && (
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>4. Déjanos tu número de contacto</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>4. Déjanos tu número de contacto</h2>
             <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
               <Phone style={{ color: 'var(--accent)', marginRight: '1rem' }} />
               <input
@@ -183,7 +183,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 onKeyDown={(e) => e.key === 'Enter' && formData.phone && handleNext()}
                 placeholder="+56 9 ..."
-                style={{ border: 'none', background: 'none', fontSize: '1.4rem', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+                style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
               />
             </div>
             <button

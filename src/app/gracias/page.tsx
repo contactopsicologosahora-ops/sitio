@@ -1,9 +1,10 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Calendar, MessageSquare, ArrowRight, Home } from "lucide-react";
+import { CheckCircle2, Calendar, Home } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
-export default function Gracias() {
+function GraciasContent() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
 
@@ -38,5 +39,13 @@ export default function Gracias() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function Gracias() {
+    return (
+        <Suspense fallback={<div>Cargando...</div>}>
+            <GraciasContent />
+        </Suspense>
     );
 }

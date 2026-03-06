@@ -36,7 +36,7 @@ export default function Home() {
                         Acompañamiento psicoterapéutico de alta especialidad. Encontramos juntos la claridad y el equilibrio que buscas en un entorno seguro y profesional.
                     </p>
 
-                    <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', alignItems: 'center', marginBottom: '6rem' }}>
+                    <div className="mobile-stack" style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', alignItems: 'center', marginBottom: '6rem' }}>
                         <a href="#quiz" className="premium-btn" style={{ padding: '1.2rem 3rem', fontSize: '1rem' }}>
                             Encontrar mi especialista <ArrowRight size={20} />
                         </a>
@@ -60,7 +60,7 @@ export default function Home() {
                     <div style={{ width: '60px', height: '2px', backgroundColor: 'var(--accent)', margin: '0 auto' }}></div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '3rem' }}>
+                <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '3rem' }}>
                     <div className="animate-fade" style={{ textAlign: 'center' }}>
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem' }}>
                             <Heart style={{ color: 'var(--accent)' }} size={28} />
@@ -88,7 +88,7 @@ export default function Home() {
             </section>
 
             {/* Narrative Section */}
-            <section style={{ padding: '8rem 8%', background: 'var(--accent-light)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'center' }}>
+            <section className="mobile-grid-1" style={{ padding: '8rem 8%', background: 'var(--accent-light)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'center' }}>
                 <div>
                     <h2 style={{ fontSize: '3rem', marginBottom: '2rem', lineHeight: '1.2' }}>Ciencia y Empatía en <span style={{ fontStyle: 'italic' }}>armonía</span>.</h2>
                     <p style={{ fontSize: '1.1rem', color: 'var(--text-soft)', marginBottom: '2rem' }}>
@@ -106,7 +106,7 @@ export default function Home() {
                     </ul>
                     <a href="/terapeutas" className="premium-btn">Conoce a nuestro equipo</a>
                 </div>
-                <div style={{
+                <div className="hide-on-mobile" style={{
                     position: 'relative',
                     height: '500px',
                     borderRadius: 'var(--radius-lg)',
@@ -117,7 +117,6 @@ export default function Home() {
                     alignItems: 'center',
                     justifyContent: 'center'
                 }}>
-                    {/* Abstract serene visual */}
                     <div style={{
                         width: '300px',
                         height: '300px',
