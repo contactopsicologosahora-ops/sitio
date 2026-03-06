@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import Navigation from "@/components/Navigation";
+
 export const metadata: Metadata = {
     title: "Psicólogos Ahora | Centro de Excelencia Psicoterapéutica",
     description: "Encuentra paz y acompañamiento experto con nuestros terapeutas especializados.",
@@ -19,30 +21,7 @@ export default function RootLayout({
                 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
             </head>
             <body>
-                <header className="glass-morphism" style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 100,
-                    padding: '1.2rem 8%',
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderBottom: '1px solid rgba(0,0,0,0.05)',
-                    gap: '1rem'
-                }}>
-                    <div style={{ fontSize: '1.4rem', fontWeight: '600', color: 'var(--primary)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></span>
-                        Psicólogos <span className="serif-font hide-on-mobile" style={{ fontWeight: '400', fontStyle: 'italic', marginLeft: '0.2rem' }}>Ahora</span>
-                    </div>
-                    <nav>
-                        <ul style={{ display: 'flex', gap: '1.5rem', listStyle: 'none', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            <li><a href="/" style={{ fontSize: '0.95rem', fontWeight: '500' }}>Inicio</a></li>
-                            <li><a href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500' }}>Expertos</a></li>
-                            <li><a href="/dashboard/admin" style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>Admin</a></li>
-                        </ul>
-                    </nav>
-                </header>
+                <Navigation />
                 <main>{children}</main>
                 <footer style={{ padding: '5rem 8% 3rem', backgroundColor: '#faf9f6', borderTop: '1px solid #f0efeb' }}>
                     <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '4rem' }}>

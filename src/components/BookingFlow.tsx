@@ -121,23 +121,52 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       <div className="animate-fade" key={step}>
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Para cuándo necesitas la sesión?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {therapist.name.split(" ")[1]}?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {["Lo antes posible (Urgente)", "Esta semana", "Próxima semana"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => { setFormData({ ...formData, urgency: opt }); handleNext(); }}
-                  className="secondary-btn"
-                  style={{ textAlign: 'left', padding: '1.2rem 1.5rem', border: formData.urgency === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
-                >
-                  {opt}
+              <button
+                onClick={() => { setFormData({ ...formData, urgency: "Calendario Directo" }); handleNext(); }}
+                className="premium-btn"
+                style={{ textAlign: 'left', padding: '1.2rem 1.5rem', justifyContent: 'center' }}
+              >
+                <Calendar size={20} /> Agendar directamente en el calendario
+              </button>
+              <div style={{ textAlign: 'center', color: 'var(--text-soft)', margin: '0.5rem 0', fontSize: '0.9rem' }}>o</div>
+              <button
+                onClick={() => { setFormData({ ...formData, urgency: "Contacto Asistido" }); handleNext(); }}
+                className="secondary-btn"
+                style={{ textAlign: 'center', padding: '1.2rem 1.5rem', justifyContent: 'center' }}
+              >
+                Dejar mis datos y solicitar contacto
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && formData.urgency === "Calendario Directo" && (
+          <div className="animate-fade">
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '1rem' }}>Selecciona tu hora</h2>
+            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Selecciona la disponibilidad de {therapist.name}.</p>
+
+            <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem' }}>
+              {["Lun 15", "Mar 16", "Mie 17", "Jue 18", "Vie 19"].map(dia => (
+                <button key={dia} style={{ padding: '1rem', borderRadius: 'var(--radius-sm)', border: '1px solid #ddd', minWidth: '80px', backgroundColor: 'var(--white)', cursor: 'pointer' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>{dia.split(" ")[0]}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{dia.split(" ")[1]}</div>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+              {["09:00", "11:30", "15:00", "18:30"].map(hora => (
+                <button key={hora} onClick={() => { setFormData({ ...formData, timeRange: hora }); handleNext(); }} className="secondary-btn" style={{ padding: '1rem' }}>
+                  {hora}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && formData.urgency === "Contacto Asistido" && (
           <div>
             <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>2. ¿Qué horario te acomodaría más?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -157,7 +186,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
         {step === 3 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>3. ¿Cuál es tu nombre completo?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>3. Ingresa tu nombre</h2>
             <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
               <UserIcon style={{ color: 'var(--accent)', marginRight: '1rem' }} />
               <input
@@ -170,32 +199,52 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
                 style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
               />
             </div>
-            <p style={{ marginTop: '1.5rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>Presiona ENTER para continuar</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+              <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', margin: 0 }}>Presiona ENTER para continuar</p>
+              <button
+                onClick={handleNext}
+                disabled={!formData.name}
+                className="premium-btn"
+                style={{ padding: '0.8rem 2rem', opacity: formData.name ? 1 : 0.5 }}
+              >
+                Continuar
+              </button>
+            </div>
           </div>
         )}
 
         {step === 4 && (
           <div>
             <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>4. Déjanos tu número de contacto</h2>
-            <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
-              <Phone style={{ color: 'var(--accent)', marginRight: '1rem' }} />
-              <input
-                type="tel"
-                autoFocus
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                onKeyDown={(e) => e.key === 'Enter' && formData.phone && handleNext()}
-                placeholder="+56 9 ..."
-                style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
-              />
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0', width: '80px' }}>
+                <span style={{ fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', color: 'var(--text-main)', fontFamily: 'var(--font-serif)', marginRight: '4px' }}>+</span>
+                <input
+                  type="text"
+                  defaultValue="56"
+                  style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0', flex: 1 }}>
+                <Phone style={{ color: 'var(--accent)', marginRight: '1rem' }} />
+                <input
+                  type="tel"
+                  autoFocus
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && formData.phone && handleNext()}
+                  placeholder="9 1234 5678"
+                  style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+                />
+              </div>
             </div>
             <button
               onClick={handleNext}
               disabled={!formData.phone}
               className="premium-btn"
-              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center' }}
+              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center', opacity: formData.phone ? 1 : 0.5 }}
             >
-              Finalizar solicitud <ArrowRight size={20} />
+              Enviar solicitud <ArrowRight size={20} />
             </button>
           </div>
         )}

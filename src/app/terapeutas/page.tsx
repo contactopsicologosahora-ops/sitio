@@ -118,33 +118,13 @@ export default function Terapeutas() {
         <>
             <div className="animate-fade" style={{ padding: '0 0 10rem' }}>
                 {/* Search Header Section */}
-                <section style={{ padding: '6rem 8% 4rem', backgroundColor: '#faf9f6', textAlign: 'center' }}>
-                    <h1 style={{ fontSize: '3rem', marginBottom: '1.2rem' }}>Equipo de Especialistas</h1>
-                    <p style={{ color: 'var(--text-soft)', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto 3rem' }}>
+                <section style={{ padding: '3rem 8% 1.5rem', backgroundColor: '#faf9f6', textAlign: 'center' }}>
+                    <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>Equipo de Especialistas</h1>
+                    <p style={{ color: 'var(--text-soft)', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto 1.5rem' }}>
                         Seleccionamos cuidadosamente a cada profesional para garantizar que tu proceso terapéutico esté en las manos más expertas del país.
                     </p>
 
-                    <div style={{ maxWidth: '700px', margin: '0 auto', display: 'flex', gap: '1rem', alignItems: 'center', backgroundColor: '#fff', padding: '0.6rem', borderRadius: '50px', boxShadow: 'var(--shadow-sm)', border: '1px solid #eee' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, paddingLeft: '1.5rem' }}>
-                            <Search size={20} color="var(--text-soft)" />
-                            <input
-                                type="text"
-                                placeholder="Busca por motivo de consulta (ej. Ansiedad, Duelo)..."
-                                style={{ border: 'none', outline: 'none', width: '100%', fontSize: '0.95rem' }}
-                            />
-                        </div>
-                        <button style={{
-                            backgroundColor: 'var(--primary)',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '0.8rem 2rem',
-                            borderRadius: '50px',
-                            fontWeight: '600',
-                            cursor: 'pointer'
-                        }}>Buscar</button>
-                    </div>
-
-                    <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '500', fontSize: '0.9rem' }}>
                             <CheckCircle size={18} color="var(--accent)" /> Valores transparentes
                         </div>
@@ -154,7 +134,7 @@ export default function Terapeutas() {
                     </div>
                 </section>
 
-                <div style={{ padding: '4rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
+                <div style={{ padding: '2rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
                     {TERAPEUTAS.map(t => (
                         <div key={t.id} className="expert-card" style={{ display: 'flex', flexDirection: 'column' }}>
                             <div style={{ position: 'relative', height: '240px', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
