@@ -20,6 +20,9 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     phone: ""
   });
   const [isLocked, setIsLocked] = useState(false);
+  const [availability, setAvailability] = useState<any>({});
+  const [loadingAvail, setLoadingAvail] = useState(false);
+  const [selectedDayLabel, setSelectedDayLabel] = useState("");
 
   useEffect(() => {
     const lastBooking = localStorage.getItem("last_booking_time");
@@ -29,7 +32,30 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
         setIsLocked(true);
       }
     }
+    fetchAvailability();
   }, []);
+
+  const fetchAvailability = async () => {
+    setLoadingAvail(true);
+    const { data, error } = await supabase
+      .from('disponibilidad')
+      .select('*')
+      .eq('therapist_id', therapist.id);
+
+    if (!error && data) {
+      const availMap: any = {};
+      data.forEach((item: any) => {
+        if (!availMap[item.day]) availMap[item.day] = [];
+        availMap[item.day].push(item.hour);
+      });
+      setAvailability(availMap);
+
+      // Auto-select first available day if any
+      const days = Object.keys(availMap);
+      if (days.length > 0) setSelectedDayLabel(days[0]);
+    }
+    setLoadingAvail(false);
+  };
 
   const totalSteps = 4;
 
@@ -145,24 +171,51 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
         {step === 2 && formData.urgency === "Calendario Directo" && (
           <div className="animate-fade">
             <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '1rem' }}>Selecciona tu hora</h2>
-            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Selecciona la disponibilidad de {therapist.name}.</p>
+            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Selecciona la disponibilidad real de {therapist.name}.</p>
 
-            <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              {["Lun 15", "Mar 16", "Mie 17", "Jue 18", "Vie 19"].map(dia => (
-                <button key={dia} style={{ padding: '1rem', borderRadius: 'var(--radius-sm)', border: '1px solid #ddd', minWidth: '80px', backgroundColor: 'var(--white)', cursor: 'pointer' }}>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>{dia.split(" ")[0]}</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{dia.split(" ")[1]}</div>
-                </button>
-              ))}
-            </div>
+            {loadingAvail ? (
+              <p>Cargando disponibilidad...</p>
+            ) : Object.keys(availability).length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#fff3cd', borderRadius: '12px' }}>
+                <p style={{ margin: 0 }}>El terapeuta aún no ha configurado sus horarios. Por favor usa la opción de <strong>"Solicitar contacto"</strong>.</p>
+                <button onClick={handlePrev} className="secondary-btn" style={{ marginTop: '1rem' }}>Volver</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                  {Object.keys(availability).map(day => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDayLabel(day)}
+                      style={{
+                        padding: '1rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: selectedDayLabel === day ? '2px solid var(--accent)' : '1px solid #ddd',
+                        minWidth: '80px',
+                        backgroundColor: selectedDayLabel === day ? 'var(--accent-light)' : 'var(--white)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Día</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{day}</div>
+                    </button>
+                  ))}
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-              {["09:00", "11:30", "15:00", "18:30"].map(hora => (
-                <button key={hora} onClick={() => { setFormData({ ...formData, timeRange: hora }); handleNext(); }} className="secondary-btn" style={{ padding: '1rem' }}>
-                  {hora}
-                </button>
-              ))}
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                  {availability[selectedDayLabel]?.map((hora: string) => (
+                    <button
+                      key={hora}
+                      onClick={() => { setFormData({ ...formData, timeRange: `${selectedDayLabel} a las ${hora}` }); handleNext(); }}
+                      className="secondary-btn"
+                      style={{ padding: '1rem' }}
+                    >
+                      {hora}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
