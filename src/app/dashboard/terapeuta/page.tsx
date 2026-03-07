@@ -7,6 +7,8 @@ export default function TherapistDashboard() {
     const [activeTab, setActiveTab] = useState("pacientes");
     const [leads, setLeads] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [availability, setAvailability] = useState<any>({});
+    const [saving, setSaving] = useState(false);
 
     const fetchLeads = async () => {
         setLoading(true);
@@ -17,7 +19,6 @@ export default function TherapistDashboard() {
 
         if (error) {
             console.error("Error fetching leads from Supabase:", error.message);
-            // Mock fallback
             const local = JSON.parse(localStorage.getItem("leads_backup") || "[]");
             setLeads(local);
         } else {
@@ -26,8 +27,25 @@ export default function TherapistDashboard() {
         setLoading(false);
     };
 
+    const fetchAvailability = async () => {
+        const { data, error } = await supabase
+            .from('disponibilidad')
+            .select('*')
+            .eq('therapist_id', 1); // Mocked therapist_id for now
+
+        if (!error && data) {
+            const availMap: any = {};
+            data.forEach((item: any) => {
+                if (!availMap[item.day]) availMap[item.day] = [];
+                availMap[item.day].push(item.hour);
+            });
+            setAvailability(availMap);
+        }
+    };
+
     useEffect(() => {
         fetchLeads();
+        fetchAvailability();
     }, []);
 
     const updateStatus = async (id: number, status: string) => {
@@ -41,6 +59,40 @@ export default function TherapistDashboard() {
         } else {
             fetchLeads();
         }
+    };
+
+    const toggleHour = (day: string, hour: string) => {
+        const currentDay = availability[day] || [];
+        const newDay = currentDay.includes(hour)
+            ? currentDay.filter((h: string) => h !== hour)
+            : [...currentDay, hour];
+
+        setAvailability({
+            ...availability,
+            [day]: newDay
+        });
+    };
+
+    const saveAvailability = async () => {
+        setSaving(true);
+        // Delete previous to update
+        await supabase.from('disponibilidad').delete().eq('therapist_id', 1);
+
+        const records = [];
+        for (const day in availability) {
+            for (const hour of availability[day]) {
+                records.push({ therapist_id: 1, day, hour });
+            }
+        }
+
+        const { error } = await supabase.from('disponibilidad').insert(records);
+
+        if (error) {
+            alert("Error al guardar: " + error.message);
+        } else {
+            alert("¡Disponibilidad actualizada en Supabase!");
+        }
+        setSaving(false);
     };
 
     return (
@@ -226,8 +278,19 @@ export default function TherapistDashboard() {
                                         <div key={day} style={{ textAlign: 'center' }}>
                                             <p style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>{day}</p>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                {['09:00', '11:00', '15:00', '17:00'].map(t => (
-                                                    <button key={t} style={{ padding: '0.6rem', border: '1px solid #eee', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer', backgroundColor: Math.random() > 0.4 ? 'var(--accent-light)' : '#fff' }}>
+                                                {['09:00', '11:00', '15:00', '17:00', '19:00'].map(t => (
+                                                    <button
+                                                        key={t}
+                                                        onClick={() => toggleHour(day, t)}
+                                                        style={{
+                                                            padding: '0.6rem',
+                                                            border: '1px solid #eee',
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.8rem',
+                                                            cursor: 'pointer',
+                                                            backgroundColor: availability[day]?.includes(t) ? 'var(--accent)' : '#fff',
+                                                            color: availability[day]?.includes(t) ? '#fff' : 'inherit'
+                                                        }}>
                                                         {t}
                                                     </button>
                                                 ))}
@@ -236,7 +299,13 @@ export default function TherapistDashboard() {
                                     ))}
                                 </div>
                                 <div style={{ marginTop: '3rem', textAlign: 'right' }}>
-                                    <button className="premium-btn">Guardar Disponibilidad</button>
+                                    <button
+                                        onClick={saveAvailability}
+                                        disabled={saving}
+                                        className="premium-btn"
+                                    >
+                                        {saving ? "Guardando..." : "Guardar Disponibilidad en Supabase"}
+                                    </button>
                                 </div>
                             </div>
                         </div>

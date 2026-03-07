@@ -1,11 +1,32 @@
 "use client";
-import { useState } from "react";
-import { ShieldAlert, BarChart3, PieChart, Users, ArrowUpRight, MessageCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, BarChart3, PieChart, Users, ArrowUpRight, MessageCircle, AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function AdminDashboard() {
     const [authorized, setAuthorized] = useState(false);
     const [password, setPassword] = useState("");
     const [error, setError] = useState(false);
+    const [stats, setStats] = useState({ totalPacientes: 0, pendientes: 0, perdidos: 0 });
+    const [loading, setLoading] = useState(false);
+
+    const fetchStats = async () => {
+        setLoading(true);
+        const { data, error } = await supabase.from('pacientes').select('status');
+        if (!error && data) {
+            const counts = {
+                totalPacientes: data.filter(d => d.status === 'Paciente').length,
+                pendientes: data.filter(d => d.status === 'Pendiente').length,
+                perdidos: data.filter(d => d.status === 'Perdido').length,
+            };
+            setStats(counts);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        if (authorized) fetchStats();
+    }, [authorized]);
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,9 +67,14 @@ export default function AdminDashboard() {
 
     return (
         <div style={{ padding: '3rem 5%', backgroundColor: '#f4f7f6', minHeight: '100vh' }}>
-            <header style={{ marginBottom: '3rem' }}>
-                <h1 style={{ fontSize: '2rem' }}>Panel de Control Global</h1>
-                <p style={{ color: 'var(--text-light)' }}>Métricas de rendimiento y conversión del centro basadas en los KPIs del Agente Socio.</p>
+            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '2rem' }}>Panel de Control Global</h1>
+                    <p style={{ color: 'var(--text-light)' }}>Métricas de rendimiento del centro basadas en los KPIs de Supabase.</p>
+                </div>
+                <button onClick={fetchStats} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refrescar Datos Reales
+                </button>
             </header>
 
             {/* Global Stats Grid */}
@@ -65,12 +91,12 @@ export default function AdminDashboard() {
                     <h2 style={{ margin: 0 }}>6,792</h2>
                 </div>
                 <div className="premium-card" style={{ borderLeft: '5px solid #f1c40f' }}>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Leads Teléfono (Paso 4)</p>
-                    <h2 style={{ margin: 0 }}>842</h2>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Leads Pendientes</p>
+                    <h2 style={{ margin: 0 }}>{stats.pendientes}</h2>
                 </div>
                 <div className="premium-card" style={{ borderLeft: '5px solid #2ecc71' }}>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Agendamiento Real</p>
-                    <h2 style={{ margin: 0 }}>210</h2>
+                    <h2 style={{ margin: 0 }}>{stats.totalPacientes}</h2>
                 </div>
             </div>
 
@@ -131,9 +157,9 @@ export default function AdminDashboard() {
                         <div style={{ backgroundColor: 'var(--accent)', color: '#fff', padding: '1rem 1.5rem', borderRadius: '12px', width: '70%', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>Paso 4: Agendamiento Real</p>
-                                <h4 style={{ margin: 0, fontSize: '1.1rem' }}>210 usuarios</h4>
+                                <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{stats.totalPacientes} usuarios</h4>
                             </div>
-                            <b style={{ fontSize: '1.2rem' }}>0.46%</b>
+                            <b style={{ fontSize: '1.2rem' }}>{((stats.totalPacientes / 45280) * 100).toFixed(2)}%</b>
                         </div>
 
                     </div>
