@@ -1,14 +1,37 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, RefreshCcw, Stethoscope, MessageSquare, ShieldAlert } from "lucide-react";
+import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, RefreshCcw, Stethoscope, MessageSquare, ShieldAlert, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function TherapistDashboard() {
+    const router = useRouter();
+    const [authorized, setAuthorized] = useState(false);
     const [activeTab, setActiveTab] = useState("pacientes");
     const [leads, setLeads] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [availability, setAvailability] = useState<any>({});
     const [saving, setSaving] = useState(false);
+    const [userName, setUserName] = useState("");
+
+    useEffect(() => {
+        const role = localStorage.getItem("user_role");
+        const name = localStorage.getItem("user_name");
+        if (!role) {
+            router.push("/login");
+        } else {
+            setAuthorized(true);
+            setUserName(name || "Especialista");
+        }
+    }, []);
+
+    const handleLogout = async () => {
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("user_name");
+        localStorage.removeItem("therapist_id");
+        await supabase.auth.signOut();
+        router.push("/login");
+    };
 
     const fetchLeads = async () => {
         setLoading(true);
@@ -28,10 +51,11 @@ export default function TherapistDashboard() {
     };
 
     const fetchAvailability = async () => {
+        const tId = localStorage.getItem('therapist_id') || '1';
         const { data, error } = await supabase
             .from('disponibilidad')
             .select('*')
-            .eq('therapist_id', 1); // Mocked therapist_id for now
+            .eq('therapist_id', parseInt(tId));
 
         if (!error && data) {
             const availMap: any = {};
@@ -44,9 +68,11 @@ export default function TherapistDashboard() {
     };
 
     useEffect(() => {
-        fetchLeads();
-        fetchAvailability();
-    }, []);
+        if (authorized) {
+            fetchLeads();
+            fetchAvailability();
+        }
+    }, [authorized]);
 
     const updateStatus = async (id: number, status: string) => {
         const { error } = await supabase
@@ -75,13 +101,15 @@ export default function TherapistDashboard() {
 
     const saveAvailability = async () => {
         setSaving(true);
+        const tId = localStorage.getItem('therapist_id') || '1';
+
         // Delete previous to update
-        await supabase.from('disponibilidad').delete().eq('therapist_id', 1);
+        await supabase.from('disponibilidad').delete().eq('therapist_id', parseInt(tId));
 
         const records = [];
         for (const day in availability) {
             for (const hour of availability[day]) {
-                records.push({ therapist_id: 1, day, hour });
+                records.push({ therapist_id: parseInt(tId), day, hour });
             }
         }
 
@@ -95,17 +123,19 @@ export default function TherapistDashboard() {
         setSaving(false);
     };
 
+    if (!authorized) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Validando credenciales...</div>;
+
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
             <div style={{ display: 'flex' }}>
                 {/* Sidebar */}
-                <aside style={{ width: '280px', backgroundColor: 'var(--primary)', color: '#fff', padding: '3rem 1.5rem', height: '100vh', position: 'sticky', top: 0 }}>
+                <aside style={{ width: '280px', backgroundColor: 'var(--primary)', color: '#fff', padding: '3rem 1.5rem', height: '100vh', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></div>
                         Psicólogos Ahora
                     </div>
 
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
                         <button
                             onClick={() => setActiveTab("pacientes")}
                             style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "pacientes" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "pacientes" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
@@ -132,16 +162,22 @@ export default function TherapistDashboard() {
                         </button>
                     </nav>
 
-                    <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <User color="var(--primary)" size={18} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>Dr. Roberto Bolton</p>
-                                <p style={{ fontSize: '0.75rem', opacity: 0.6 }}>Terapeuta Senior</p>
+                                <p style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0 }}>Ps. {userName}</p>
+                                <p style={{ fontSize: '0.75rem', opacity: 0.6, margin: 0 }}>Psicoterapeuta Online</p>
                             </div>
                         </div>
+                        <button
+                            onClick={handleLogout}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', background: 'none', color: '#fff', cursor: 'pointer', opacity: 0.8, fontSize: '0.9rem' }}
+                        >
+                            <LogOut size={16} /> Cerrar Sesión
+                        </button>
                     </div>
                 </aside>
 
@@ -278,7 +314,7 @@ export default function TherapistDashboard() {
                                         <div key={day} style={{ textAlign: 'center' }}>
                                             <p style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>{day}</p>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                {['09:00', '11:00', '15:00', '17:00', '19:00'].map(t => (
+                                                {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t => (
                                                     <button
                                                         key={t}
                                                         onClick={() => toggleHour(day, t)}
@@ -304,7 +340,7 @@ export default function TherapistDashboard() {
                                         disabled={saving}
                                         className="premium-btn"
                                     >
-                                        {saving ? "Guardando..." : "Guardar Disponibilidad en Supabase"}
+                                        {saving ? "Guardando..." : "Guardar disponibilidad"}
                                     </button>
                                 </div>
                             </div>

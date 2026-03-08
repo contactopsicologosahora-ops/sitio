@@ -1,19 +1,27 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export default function Navigation() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [role, setRole] = useState<string | null>(null);
 
     useEffect(() => {
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768);
         };
-        // Initial check
         checkMobile();
         window.addEventListener("resize", checkMobile);
+
+        // Listen for user role changes (using local storage for this simplified multi-role demo)
+        const checkAuth = () => {
+            setRole(localStorage.getItem("user_role"));
+        };
+        checkAuth();
+
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
 
@@ -59,7 +67,17 @@ export default function Navigation() {
                             <ul style={{ display: 'flex', flexDirection: 'column', gap: '2rem', listStyle: 'none', margin: 0, padding: 0 }}>
                                 <li><Link href="/" onClick={toggleMenu} style={{ fontSize: '1.2rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Inicio</Link></li>
                                 <li><Link href="/terapeutas" onClick={toggleMenu} style={{ fontSize: '1.2rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Expertos</Link></li>
-                                <li><Link href="/dashboard/admin" onClick={toggleMenu} style={{ fontSize: '1rem', color: 'var(--text-soft)', textDecoration: 'none' }}>Admin</Link></li>
+                                <li style={{ marginTop: '1rem' }}>
+                                    {role ? (
+                                        <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} onClick={toggleMenu} className="premium-btn" style={{ fontSize: '1rem', width: '100%', justifyContent: 'center' }}>
+                                            <User size={18} /> Mi Panel
+                                        </Link>
+                                    ) : (
+                                        <Link href="/login" onClick={toggleMenu} className="premium-btn" style={{ fontSize: '1rem', width: '100%', justifyContent: 'center' }}>
+                                            Ingresar
+                                        </Link>
+                                    )}
+                                </li>
                             </ul>
                         </div>
                     )}
@@ -69,7 +87,17 @@ export default function Navigation() {
                     <ul style={{ display: 'flex', gap: '1.5rem', listStyle: 'none', flexWrap: 'wrap', justifyContent: 'center', margin: 0, padding: 0 }}>
                         <li><Link href="/" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Inicio</Link></li>
                         <li><Link href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Expertos</Link></li>
-                        <li><Link href="/dashboard/admin" style={{ color: 'var(--text-soft)', fontSize: '0.85rem', textDecoration: 'none' }}>Admin</Link></li>
+                        <li style={{ marginLeft: '1rem' }}>
+                            {role ? (
+                                <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} className="premium-btn" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                                    <User size={16} /> Mi Panel
+                                </Link>
+                            ) : (
+                                <Link href="/login" className="premium-btn" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                                    Ingresar
+                                </Link>
+                            )}
+                        </li>
                     </ul>
                 </nav>
             )}

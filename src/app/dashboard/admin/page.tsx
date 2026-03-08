@@ -1,14 +1,23 @@
 "use client";
-import { ShieldAlert, BarChart3, PieChart, Users, ArrowUpRight, MessageCircle, AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
+import { ShieldAlert, BarChart3, PieChart, Users, ArrowUpRight, MessageCircle, AlertTriangle, CheckCircle2, RefreshCcw, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+    const router = useRouter();
     const [authorized, setAuthorized] = useState(false);
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState(false);
     const [stats, setStats] = useState({ totalPacientes: 0, pendientes: 0, perdidos: 0 });
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const role = localStorage.getItem("user_role");
+        if (role !== "admin") {
+            router.push("/login");
+        } else {
+            setAuthorized(true);
+        }
+    }, []);
 
     const fetchStats = async () => {
         setLoading(true);
@@ -28,42 +37,17 @@ export default function AdminDashboard() {
         if (authorized) fetchStats();
     }, [authorized]);
 
-    const handleLogin = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (password === "BoltonPardo26") {
-            setAuthorized(true);
-            setError(false);
-        } else {
-            setError(true);
-        }
+    const handleLogout = async () => {
+        localStorage.removeItem("user_role");
+        await supabase.auth.signOut();
+        router.push("/login");
     };
 
     const handleSendWhatsApp = (phone: string, name: string) => {
         alert(`Simulando envío de mensaje de confirmación por WhatsApp a ${name} (${phone})...`);
     }
 
-    if (!authorized) {
-        return (
-            <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="premium-card" style={{ maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-                    <ShieldAlert size={48} style={{ color: 'var(--accent)', marginBottom: '1rem' }} />
-                    <h2>Acceso Administrativo</h2>
-                    <p style={{ marginBottom: '2rem', color: 'var(--text-light)' }}>Este panel contiene métricas sensibles del centro.</p>
-                    <form onSubmit={handleLogin}>
-                        <input
-                            type="password"
-                            placeholder="Contraseña"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            style={{ width: '100%', padding: '1rem', marginBottom: '1rem', borderRadius: '8px', border: `1px solid ${error ? '#e74c3c' : '#ddd'}` }}
-                        />
-                        {error && <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginBottom: '1rem' }}>Contraseña incorrecta</p>}
-                        <button className="premium-btn" style={{ width: '100%' }}>Entrar al Panel</button>
-                    </form>
-                </div>
-            </div>
-        );
-    }
+    if (!authorized) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Cargando panel de seguridad...</div>;
 
     return (
         <div style={{ padding: '3rem 5%', backgroundColor: '#f4f7f6', minHeight: '100vh' }}>
@@ -72,9 +56,14 @@ export default function AdminDashboard() {
                     <h1 style={{ fontSize: '2rem' }}>Panel de Control Global</h1>
                     <p style={{ color: 'var(--text-light)' }}>Métricas de rendimiento del centro basadas en los KPIs de Supabase.</p>
                 </div>
-                <button onClick={fetchStats} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refrescar Datos Reales
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={fetchStats} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refrescar Datos Reales
+                    </button>
+                    <button onClick={handleLogout} className="secondary-btn" style={{ color: '#e74c3c', borderColor: '#e74c3c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <LogOut size={16} /> Salir
+                    </button>
+                </div>
             </header>
 
             {/* Global Stats Grid */}

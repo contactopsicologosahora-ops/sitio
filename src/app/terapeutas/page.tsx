@@ -8,6 +8,7 @@ const TERAPEUTAS = [
     {
         id: 1,
         name: "Ps. Esteban Cancino Ancalipe",
+        email: "esteban.cancino@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Ansiedad, Depresión, Estrés, Angustia",
         price: "$35.000 / Individual",
@@ -16,11 +17,12 @@ const TERAPEUTAS = [
         reviews: 124,
         image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Esteban",
         tags: ["Ansiedad", "Depresión", "Estrés", "Duelos", "Autoestima", "Trauma"],
-        availability: "Alta" // Point 3: Load Balancing
+        availability: "Alta"
     },
     {
         id: 2,
         name: "Ps. Paola Arriagada",
+        email: "paola.arriagada@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Ansiedad, Depresión, Estrés, Angustia",
         price: "$35.000 / Individual - $45.000 / Pareja",
@@ -34,6 +36,7 @@ const TERAPEUTAS = [
     {
         id: 3,
         name: "Ps. Manuel Erlandsen Muscio",
+        email: "manuel.erlandsen@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Trastornos del ánimo, Neurodivergencias",
         price: "$35.000 / Individual",
@@ -47,6 +50,7 @@ const TERAPEUTAS = [
     {
         id: 4,
         name: "Ps. Oliver Arancibia López",
+        email: "oliver.arancibia@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Ansiedad generalizada, Problemas de pareja",
         price: "$40.000 / Individual",
@@ -60,6 +64,7 @@ const TERAPEUTAS = [
     {
         id: 5,
         name: "Ps. Francisca Pino Aragón",
+        email: "francisca.pino@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Estrés, Ansiedad social, Manejo de la ira",
         price: "$35.000 / Individual",
@@ -73,6 +78,7 @@ const TERAPEUTAS = [
     {
         id: 6,
         name: "Ps. Juan Rojas Pardo",
+        email: "juan.rojas@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Depresión, Ansiedad, Relaciones conflictivas",
         price: "$45.000 / Individual - $55.000 / Pareja",
@@ -86,6 +92,7 @@ const TERAPEUTAS = [
     {
         id: 7,
         name: "Ps. Marlene Calvete Chavarría",
+        email: "marlene.calvete@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Trastornos de Conducta Alimentaria, Depresión",
         price: "$35.000 / Individual",
@@ -99,6 +106,7 @@ const TERAPEUTAS = [
     {
         id: 8,
         name: "Ps. Verónica Cuadra Valenzuela",
+        email: "veronica.cuadra@psicologosahora.cl",
         title: "Psicoterapia para Adultos",
         specialty: "Estrés, Ansiedad social, Pareja",
         price: "$35.000 / Individual",

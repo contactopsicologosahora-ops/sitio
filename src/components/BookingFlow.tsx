@@ -20,6 +20,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     phone: ""
   });
   const [isLocked, setIsLocked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [availability, setAvailability] = useState<any>({});
   const [loadingAvail, setLoadingAvail] = useState(false);
   const [selectedDayLabel, setSelectedDayLabel] = useState("");
@@ -69,6 +70,9 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     // Record booking time for lockout
     localStorage.setItem("last_booking_time", Date.now().toString());
 
@@ -93,8 +97,31 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist.id, date: new Date().toISOString(), status: 'Pendiente' }]));
     }
 
-    // Emulate email trigger
-    console.log("Emulating email to:", therapist.name, "copy to: contactopsicologosahora@gmail.com");
+    // Trigger Email Notification
+    try {
+      console.log("Iniciando envío de correo de notificación...");
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientData: formData,
+          therapistEmail: therapist.email || 'contactopsicologosahora@gmail.com',
+          therapistName: therapist.name
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error en la respuesta del servidor de correo:", response.status, errorText);
+      } else {
+        const result = await response.json();
+        console.log("Servidor confirmó envío de correo:", result);
+      }
+    } catch (e) {
+      console.error("Fallo de red al intentar enviar correo:", e);
+    }
 
     // Redirect to thank you page
     router.push(`/gracias?therapistId=${therapist.id}`);
@@ -293,11 +320,11 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
             </div>
             <button
               onClick={handleNext}
-              disabled={!formData.phone}
+              disabled={!formData.phone || isSubmitting}
               className="premium-btn"
-              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center', opacity: formData.phone ? 1 : 0.5 }}
+              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center', opacity: (formData.phone && !isSubmitting) ? 1 : 0.5 }}
             >
-              Enviar solicitud <ArrowRight size={20} />
+              {isSubmitting ? "Enviando solicitud..." : "Enviar solicitud"} {!isSubmitting && <ArrowRight size={20} />}
             </button>
           </div>
         )}
