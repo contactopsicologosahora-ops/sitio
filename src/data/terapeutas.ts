@@ -11,6 +11,8 @@ export const TERAPEUTAS = [
         quote: "La salud mental no es una meta, sino un proceso constante de autocuidado.",
         image: "/terapeutas/esteban_cancino.png",
         tags: ["Ansiedad", "Depresión", "Estrés", "Duelos", "Autoestima", "Trauma"],
+        rating: 4.9,
+        reviews: 124,
         availability: "Alta"
     },
     {
@@ -25,6 +27,8 @@ export const TERAPEUTAS = [
         quote: "El primer paso para el cambio es la aceptación consciente.",
         image: "/terapeutas/paola_arriagada.jpg",
         tags: ["Ansiedad", "Depresión", "Autoestima", "Fobias", "Duelos"],
+        rating: 5.0,
+        reviews: 86,
         availability: "Media"
     },
     {
@@ -39,6 +43,8 @@ export const TERAPEUTAS = [
         quote: "Cada mente es un universo con sus propias leyes y ritmos.",
         image: "/terapeutas/manuel_erlandsen.jpg",
         tags: ["Depresión", "TCA", "Obsesión", "Neurodivergencias"],
+        rating: 4.8,
+        reviews: 64,
         availability: "Alta"
     },
     {
@@ -53,6 +59,8 @@ export const TERAPEUTAS = [
         quote: "Las relaciones son el espejo donde mejor nos conocemos.",
         image: "/terapeutas/oliver_arancibia.png",
         tags: ["Pareja", "Duelo", "TCA", "Disfunciones sexuales"],
+        rating: 4.9,
+        reviews: 92,
         availability: "Baja"
     },
     {
@@ -67,6 +75,8 @@ export const TERAPEUTAS = [
         quote: "La calma es una habilidad que se entrena día a día.",
         image: "/terapeutas/francisca_pino.png",
         tags: ["Estrés", "Ansiedad social", "Duelo", "Crianza"],
+        rating: 4.7,
+        reviews: 78,
         availability: "Media"
     },
     {
@@ -81,6 +91,8 @@ export const TERAPEUTAS = [
         quote: "Incluso en el invierno más oscuro, existe un sol interno.",
         image: "/terapeutas/juan_rojas.png",
         tags: ["Depresión", "Ansiedad", "Ideación Suicida", "Inseguridades"],
+        rating: 5.0,
+        reviews: 110,
         availability: "Alta"
     },
     {
@@ -95,6 +107,8 @@ export const TERAPEUTAS = [
         quote: "Amarse a uno mismo es el inicio de un romance que dura toda la vida.",
         image: "/terapeutas/marlene_calvete.png",
         tags: ["TCA", "Depresión", "Crisis de Pánico", "Sueño"],
+        rating: 4.8,
+        reviews: 55,
         availability: "Baja"
     },
     {
@@ -109,6 +123,8 @@ export const TERAPEUTAS = [
         quote: "El bienestar es el resultado de nuestras decisiones conscientes.",
         image: "/terapeutas/veronica_cuadra.png",
         tags: ["Estrés", "Autoestima", "Duelo", "Psicoeducación"],
+        rating: 4.9,
+        reviews: 84,
         availability: "Alta"
     }
 ];

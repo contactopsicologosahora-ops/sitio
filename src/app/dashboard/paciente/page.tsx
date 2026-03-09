@@ -64,7 +64,7 @@ export default function PacienteDashboard() {
 
                         <div className="glass-morphism" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', backgroundImage: 'url(https://api.dicebear.com/7.x/avataaars/svg?seed=Esteban)', backgroundSize: 'cover' }}></div>
+                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', backgroundImage: 'url(/terapeutas/esteban_cancino.png)', backgroundSize: 'cover' }}></div>
                                 <div>
                                     <h3 style={{ fontSize: '1.4rem' }}>Ps. Esteban Cancino</h3>
                                     <p style={{ color: 'var(--text-soft)' }}>Psicoterapia Individual</p>
