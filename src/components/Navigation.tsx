@@ -3,11 +3,16 @@ import { useState, useEffect } from "react";
 import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { usePathname } from "next/navigation";
 
 export default function Navigation() {
+    const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [role, setRole] = useState<string | null>(null);
+
+    // No mostrar el menú en la lista de especialistas
+    if (pathname === "/terapeutas") return null;
 
     useEffect(() => {
         const checkMobile = () => {
