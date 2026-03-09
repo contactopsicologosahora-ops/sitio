@@ -11,8 +11,7 @@ export default function Navigation() {
     const [isMobile, setIsMobile] = useState(false);
     const [role, setRole] = useState<string | null>(null);
 
-    // No mostrar el menú en la lista de especialistas
-    if (pathname === "/terapeutas") return null;
+    // Initial check for mobile and auth
 
     useEffect(() => {
         const checkMobile = () => {
@@ -36,15 +35,18 @@ export default function Navigation() {
 
     return (
         <header className="glass-morphism" style={{
-            position: 'sticky',
+            position: 'fixed',
             top: 0,
-            zIndex: 100,
+            left: 0,
+            width: '100%',
+            zIndex: 1000,
             padding: '1.2rem 8%',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             borderBottom: '1px solid rgba(0,0,0,0.05)',
-            gap: '1rem'
+            gap: '1rem',
+            transition: 'all 0.3s ease'
         }}>
             <div style={{ fontSize: '1.4rem', fontWeight: '600', color: 'var(--primary)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></span>
@@ -89,16 +91,16 @@ export default function Navigation() {
                 </>
             ) : (
                 <nav>
-                    <ul style={{ display: 'flex', gap: '1.5rem', listStyle: 'none', flexWrap: 'wrap', justifyContent: 'center', margin: 0, padding: 0 }}>
-                        <li><Link href="/" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Inicio</Link></li>
-                        <li><Link href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none' }}>Expertos</Link></li>
-                        <li style={{ marginLeft: '1rem' }}>
+                    <ul style={{ display: 'flex', gap: '2.5rem', listStyle: 'none', alignItems: 'center', margin: 0, padding: 0 }}>
+                        <li><Link href="/" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none', transition: 'color 0.2s' }}>Inicio</Link></li>
+                        <li><Link href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none', transition: 'color 0.2s' }}>Expertos</Link></li>
+                        <li style={{ marginLeft: '0.5rem' }}>
                             {role ? (
-                                <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} className="premium-btn" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                                <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} className="premium-btn" style={{ padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}>
                                     <User size={16} /> Mi Panel
                                 </Link>
                             ) : (
-                                <Link href="/login" className="premium-btn" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                                <Link href="/login" className="premium-btn" style={{ padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}>
                                     Ingresar
                                 </Link>
                             )}

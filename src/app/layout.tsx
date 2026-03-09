@@ -20,9 +20,9 @@ export default function RootLayout({
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
             </head>
-            <body>
+            <body style={{ paddingTop: '80px' }}>
                 <Navigation />
-                <main>{children}</main>
+                <main style={{ minHeight: 'calc(100vh - 80px)' }}>{children}</main>
                 <footer style={{ padding: '5rem 8% 3rem', backgroundColor: '#faf9f6', borderTop: '1px solid #f0efeb' }}>
                     <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '4rem' }}>
                         <div>

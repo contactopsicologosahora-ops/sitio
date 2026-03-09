@@ -57,14 +57,16 @@ h3,
 .text-gradient {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-muted) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .glass-morphism {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
 }
 
 .premium-btn {
@@ -161,7 +163,8 @@ h3,
    ========================================== */
 @media (max-width: 1024px) {
   html {
-    font-size: 15px; /* Slight typography scaling */
+    font-size: 15px;
+    /* Slight typography scaling */
   }
 }
 
@@ -169,7 +172,7 @@ h3,
   html {
     font-size: 14px;
   }
-  
+
   /* Make section padding smaller on mobile */
   section {
     padding-left: 5% !important;
@@ -179,18 +182,30 @@ h3,
   }
 
   /* Typography Adjustments */
-  h1 { font-size: 2.8rem !important; }
-  h2 { font-size: 2.2rem !important; }
-  h3 { font-size: 1.3rem !important; }
-  p { font-size: 1rem !important; }
+  h1 {
+    font-size: 2.8rem !important;
+  }
+
+  h2 {
+    font-size: 2.2rem !important;
+  }
+
+  h3 {
+    font-size: 1.3rem !important;
+  }
+
+  p {
+    font-size: 1rem !important;
+  }
 
   /* Buttons full width on mobile */
-  .premium-btn, .secondary-btn {
+  .premium-btn,
+  .secondary-btn {
     width: 100%;
     justify-content: center;
     padding: 1rem;
   }
-  
+
   /* Flexbox handling for stacked layouts */
   .mobile-stack {
     flex-direction: column !important;
@@ -209,5 +224,7 @@ h3,
 }
 
 @media (max-width: 480px) {
-  h1 { font-size: 2.3rem !important; }
+  h1 {
+    font-size: 2.3rem !important;
+  }
 }
