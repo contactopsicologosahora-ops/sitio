@@ -47,6 +47,7 @@ export default function LoginPage() {
                 if (password === expectedPassword) {
                     localStorage.setItem("user_role", "terapeuta");
                     localStorage.setItem("user_name", foundTherapist.name);
+                    localStorage.setItem("user_email", email);
                     // Buscar el ID real en Supabase por email
                     const { data: tData } = await supabase
                         .from('terapeutas')
@@ -75,10 +76,12 @@ export default function LoginPage() {
             if (tData) {
                 localStorage.setItem("user_role", "terapeuta");
                 localStorage.setItem("user_name", tData.name);
+                localStorage.setItem("user_email", data.user.email || "");
                 localStorage.setItem("therapist_id", tData.id.toString());
             } else {
                 localStorage.setItem("user_role", "terapeuta");
                 localStorage.setItem("user_name", data.user.email || "Especialista");
+                localStorage.setItem("user_email", data.user.email || "");
             }
             router.push("/dashboard/terapeuta");
         }

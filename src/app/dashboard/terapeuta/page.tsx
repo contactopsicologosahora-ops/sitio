@@ -14,6 +14,7 @@ export default function TherapistDashboard() {
     const [saving, setSaving] = useState(false);
     const [userName, setUserName] = useState("");
     const [terapeutaData, setTerapeutaData] = useState<any>(null);
+    const [perfilError, setPerfilError] = useState(false);
 
     useEffect(() => {
         const role = localStorage.getItem("user_role");
@@ -29,22 +30,47 @@ export default function TherapistDashboard() {
 
     const fetchTerapeutaData = async () => {
         const tId = localStorage.getItem('therapist_id');
-        if (!tId) return;
+        const userEmail = localStorage.getItem('user_email');
+        setPerfilError(false);
 
-        const { data, error } = await supabase
-            .from('terapeutas')
-            .select('*')
-            .eq('id', parseInt(tId))
-            .single();
+        // Estrategia 1: buscar por ID numérico
+        if (tId) {
+            const { data, error } = await supabase
+                .from('terapeutas')
+                .select('*')
+                .eq('id', parseInt(tId))
+                .single();
 
-        if (data && !error) {
-            setTerapeutaData(data);
+            if (data && !error) {
+                setTerapeutaData(data);
+                return;
+            }
         }
+
+        // Estrategia 2: buscar por email guardado en localStorage
+        if (userEmail) {
+            const { data, error } = await supabase
+                .from('terapeutas')
+                .select('*')
+                .eq('email', userEmail)
+                .single();
+
+            if (data && !error) {
+                setTerapeutaData(data);
+                // Actualizar el therapist_id con el ID real de Supabase
+                localStorage.setItem('therapist_id', data.id.toString());
+                return;
+            }
+        }
+
+        // Si no se encontró por ningún método, marcar error
+        setPerfilError(true);
     };
 
     const handleLogout = async () => {
         localStorage.removeItem("user_role");
         localStorage.removeItem("user_name");
+        localStorage.removeItem("user_email");
         localStorage.removeItem("therapist_id");
         await supabase.auth.signOut();
         router.push("/login");
@@ -587,6 +613,15 @@ export default function TherapistDashboard() {
                                                 {saving ? "Guardando..." : "Guardar Cambios Públicos"}
                                             </button>
                                         </form>
+                                    ) : perfilError ? (
+                                        <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                                            <p style={{ color: '#dc3545', marginBottom: '1rem' }}>⚠️ No se encontraron datos de perfil en Supabase.</p>
+                                            <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                                                Es posible que tu email aún no esté en la tabla de terapeutas.<br />
+                                                Contacta al administrador para que registre tu perfil.
+                                            </p>
+                                            <button onClick={fetchTerapeutaData} className="secondary-btn">Reintentar</button>
+                                        </div>
                                     ) : (
                                         <p style={{ textAlign: 'center', color: 'var(--text-soft)', padding: '2rem 0' }}>Cargando datos de perfil...</p>
                                     )}
