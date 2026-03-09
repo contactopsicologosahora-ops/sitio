@@ -306,7 +306,7 @@ export default function TherapistDashboard() {
             </aside>
 
             {/* Main Content */}
-            <main style={{ flex: 1, padding: '4rem 5% 8rem' }}>
+            <main style={{ flex: 1, padding: '4rem 5% 8rem', marginLeft: '280px' }}>
 
                 {activeTab === "pacientes" && (
                     <div className="animate-fade">

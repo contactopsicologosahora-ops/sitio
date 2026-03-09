@@ -41,7 +41,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     const { data, error } = await supabase
       .from('disponibilidad')
       .select('*')
-      .eq('therapist_id', therapist.id);
+      .eq('therapist_id', therapist?.id);
 
     if (!error && data) {
       const availMap: any = {};
@@ -94,22 +94,29 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       if (error) {
         console.error("Supabase Save Error (Falling back to LocalStorage):", error.message);
         // Backup to localStorage if DB fails
-        const existingLeads = JSON.parse(localStorage.getItem("leads_backup") || "[]");
-        localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist.id, date: new Date().toISOString(), status: 'Pendiente' }]));
+        try {
+          const rawLeads = localStorage.getItem("leads_backup");
+          const existingLeads = Array.isArray(JSON.parse(rawLeads || "[]")) ? JSON.parse(rawLeads || "[]") : [];
+          localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist?.id, date: new Date().toISOString(), status: 'Pendiente' }]));
+        } catch (storageErr) {
+          console.error("Local backup also failed:", storageErr);
+        }
       }
 
       // Trigger Email Notification (Non-blocking)
+      console.log("Firing email notification...");
       const fireEmail = async () => {
         try {
-          await fetch('/api/send', {
+          const res = await fetch('/api/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               patientData: formData,
-              therapistEmail: therapist.email || 'contactopsicologosahora@gmail.com',
-              therapistName: therapist.name || 'Especialista'
+              therapistEmail: therapist?.email || 'contactopsicologosahora@gmail.com',
+              therapistName: therapist?.name || 'Especialista'
             }),
           });
+          console.log("Email result:", res.status);
         } catch (e) {
           console.error("Fallo de red al intentar enviar correo:", e);
         }
@@ -118,11 +125,17 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       fireEmail();
 
       // Redirect to thank you page
-      router.push(`/gracias?therapistId=${therapist.id}`);
-    } catch (err) {
-      console.error("Critical error during submission:", err);
-      // Even if everything fails, try to redirect or show message to avoid "Application Error"
-      router.push(`/gracias?therapistId=${therapist.id}`);
+      console.log("Booking success - Redirecting to thanks page...");
+      if (typeof window !== 'undefined') {
+        const targetUrl = `/gracias?therapistId=${therapist?.id || ''}`;
+        router.push(targetUrl);
+      }
+    } catch (err: any) {
+      console.error("CRITICAL ERROR IN SUBMIT:", err);
+      // Fallback redirection to avoid "Application Error"
+      if (typeof window !== 'undefined') {
+        window.location.href = `/gracias?therapistId=${therapist?.id || 'error'}`;
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +188,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       <div className="animate-fade" key={step}>
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {(therapist.name || "").split(" ")[1] || "tu especialista"}?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {(therapist?.name || "").split(" ")[1] || "tu especialista"}?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <button
                 onClick={() => { setFormData({ ...formData, urgency: "Calendario Directo" }); handleNext(); }}
