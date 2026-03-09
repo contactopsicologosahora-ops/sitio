@@ -1,16 +1,38 @@
 "use client";
-import { useState } from "react";
-import { ArrowLeft, Star, ShieldCheck, Mail, MapPin, Award, BookOpen, Quote, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Star, ShieldCheck, Mail, MapPin, Award, BookOpen, Quote, X, Loader2 } from "lucide-react";
 import BookingFlow from "@/components/BookingFlow";
 import Link from "next/link";
-
-import { TERAPEUTAS } from "@/data/terapeutas";
+import { supabase } from "@/lib/supabase";
 
 export default function TerapeutaProfile({ params }: { params: { id: string } }) {
     const [showBooking, setShowBooking] = useState(false);
+    const [t, setT] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Find the real therapist by ID
-    const t = TERAPEUTAS.find(item => item.id === parseInt(params.id)) || TERAPEUTAS[0];
+    useEffect(() => {
+        const fetchTerapeuta = async () => {
+            const { data, error } = await supabase
+                .from('terapeutas')
+                .select('*')
+                .eq('id', parseInt(params.id))
+                .single();
+
+            if (data) setT(data);
+            setLoading(false);
+        };
+        fetchTerapeuta();
+    }, [params.id]);
+
+    const handleOpenBooking = async () => {
+        setShowBooking(true);
+        if (t) {
+            await supabase.rpc('increment_clics', { therapist_id: t.id });
+        }
+    };
+
+    if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" size={32} color="var(--accent)" /></div>;
+    if (!t) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Especialista no encontrado</div>;
 
     return (
         <div className="animate-fade" style={{ backgroundColor: 'var(--bg-serene)', minHeight: '100vh' }}>
@@ -77,7 +99,7 @@ export default function TerapeutaProfile({ params }: { params: { id: string } })
                         </div>
                         <h3 style={{ marginBottom: '1rem' }}>¿Iniciamos el proceso?</h3>
                         <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Reserva tu primera sesión de evaluación con {t.name.split(" ")[1]} hoy mismo.</p>
-                        <button onClick={() => setShowBooking(true)} className="premium-btn" style={{ width: '100%', justifyContent: 'center', padding: '1.2rem' }}>
+                        <button onClick={handleOpenBooking} className="premium-btn" style={{ width: '100%', justifyContent: 'center', padding: '1.2rem' }}>
                             Consultar Disponibilidad
                         </button>
                     </div>
@@ -100,4 +122,3 @@ export default function TerapeutaProfile({ params }: { params: { id: string } })
         </div>
     );
 }
-

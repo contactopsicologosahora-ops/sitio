@@ -13,6 +13,7 @@ export default function TherapistDashboard() {
     const [availability, setAvailability] = useState<any>({});
     const [saving, setSaving] = useState(false);
     const [userName, setUserName] = useState("");
+    const [terapeutaData, setTerapeutaData] = useState<any>(null);
 
     useEffect(() => {
         const role = localStorage.getItem("user_role");
@@ -22,8 +23,24 @@ export default function TherapistDashboard() {
         } else {
             setAuthorized(true);
             setUserName(name || "Especialista");
+            fetchTerapeutaData();
         }
     }, []);
+
+    const fetchTerapeutaData = async () => {
+        const tId = localStorage.getItem('therapist_id');
+        if (!tId) return;
+
+        const { data, error } = await supabase
+            .from('terapeutas')
+            .select('*')
+            .eq('id', parseInt(tId))
+            .single();
+
+        if (data && !error) {
+            setTerapeutaData(data);
+        }
+    };
 
     const handleLogout = async () => {
         localStorage.removeItem("user_role");
@@ -56,6 +73,19 @@ export default function TherapistDashboard() {
             setLeads(data || []);
         }
         setLoading(false);
+    };
+
+    const updatePatientEmail = async (id: string, email: string) => {
+        const { error } = await supabase
+            .from('pacientes')
+            .update({ email })
+            .eq('id', id);
+
+        if (error) {
+            alert('Error guardando el correo: ' + error.message);
+        } else {
+            setLeads(leads.map(l => l.id === id ? { ...l, email } : l));
+        }
     };
 
     const fetchAvailability = async () => {
@@ -131,6 +161,33 @@ export default function TherapistDashboard() {
         setSaving(false);
     };
 
+    const handlePanicButton = async () => {
+        if (!confirm("¿Estás seguro que deseas activar el Botón de Pánico Académico? Esto enviará una alerta inmediata a los supervisores clínicos (cfernandez.bolton@gmail.com, juanrojaspardo@gmail.com).")) {
+            return;
+        }
+
+        const btn = document.getElementById("panic-btn");
+        if (btn) btn.innerText = "Enviando alerta...";
+
+        try {
+            const res = await fetch('/api/panic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ therapistName: userName })
+            });
+
+            if (res.ok) {
+                alert("Alerta enviada con éxito. Un supervisor se pondrá en contacto a la brevedad.");
+            } else {
+                alert("Hubo un error al enviar la alerta. Por favor, contacta directamente por teléfono.");
+            }
+        } catch (e) {
+            alert("Hubo un error de conexión.");
+        } finally {
+            if (btn) btn.innerHTML = `<span style="display:flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square" style="margin-right: 0.5rem;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Solicitar Supervisión de Caso</span>`;
+        }
+    };
+
     if (!authorized) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Validando credenciales...</div>;
 
     return (
@@ -167,6 +224,12 @@ export default function TherapistDashboard() {
                             style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "comunidad" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "comunidad" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <ShieldAlert size={20} /> Peer Assist
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("perfil")}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "perfil" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "perfil" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                        >
+                            <User size={20} /> Editar Perfil
                         </button>
                     </nav>
 
@@ -214,6 +277,7 @@ export default function TherapistDashboard() {
                                         <thead>
                                             <tr style={{ textAlign: 'left', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
                                                 <th style={{ padding: '1rem' }}>PACIENTE</th>
+                                                <th style={{ padding: '1rem' }}>EMAIL</th>
                                                 <th style={{ padding: '1rem' }}>FECHA</th>
                                                 <th style={{ padding: '1rem' }}>ESTADO</th>
                                                 <th style={{ padding: '1rem' }}>ACCIONES</th>
@@ -225,6 +289,15 @@ export default function TherapistDashboard() {
                                                     <td style={{ padding: '1.5rem', fontWeight: '600', borderRadius: '12px 0 0 12px' }}>
                                                         {lead.name}
                                                         <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', fontWeight: '400' }}>{lead.phone}</p>
+                                                    </td>
+                                                    <td style={{ padding: '1.5rem' }}>
+                                                        <input
+                                                            type="email"
+                                                            defaultValue={lead.email || ''}
+                                                            placeholder="Añadir correo..."
+                                                            onBlur={(e) => updatePatientEmail(lead.id, e.target.value)}
+                                                            style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.85rem', width: '100%', outline: 'none' }}
+                                                        />
                                                     </td>
                                                     <td style={{ padding: '1.5rem' }}>{new Date(lead.created_at || Date.now()).toLocaleDateString()}</td>
                                                     <td style={{ padding: '1.5rem' }}>
@@ -262,36 +335,44 @@ export default function TherapistDashboard() {
                             <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                                 <div>
                                     <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Tus Métricas</h1>
-                                    <p style={{ color: 'var(--text-soft)' }}>Análisis de rendimiento y conversión.</p>
+                                    <p style={{ color: 'var(--text-soft)' }}>Análisis de rendimiento y conversión transversal de tu perfil.</p>
                                 </div>
                                 <select style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid #ddd', backgroundColor: '#fff', fontSize: '0.9rem' }}>
+                                    <option>Histórico</option>
                                     <option>Últimos 30 días</option>
                                     <option>Este año</option>
-                                    <option>Histórico</option>
                                 </select>
                             </header>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', marginBottom: '3rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
                                 <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Leads Totales</p>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <h2 style={{ fontSize: '2.5rem' }}>{leads.length}</h2>
-                                        <span style={{ color: '#198754', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.85rem', fontWeight: '700' }}>
-                                            <ArrowUpRight size={14} /> +{Math.round(leads.length * 0.1)}%
-                                        </span>
-                                    </div>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Impresiones</p>
+                                    <h2 style={{ fontSize: '2.5rem' }}>{terapeutaData?.impresiones || 0}</h2>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Visualizaciones de perfil</p>
                                 </div>
-                                <div style={{ backgroundColor: '#fff', padding: '1rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '2px solid var(--accent-light)' }}>
-                                    <div style={{ padding: '1rem' }}>
-                                        <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Pendientes</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <h2 style={{ fontSize: '2.5rem' }}>{leads.filter(l => l.status === 'Pendiente').length}</h2>
-                                        </div>
-                                    </div>
-                                </div>
+
                                 <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Pacientes Reales</p>
-                                    <h2 style={{ fontSize: '2.5rem' }}>{leads.filter(l => l.status === 'Paciente').length}</h2>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Clics</p>
+                                    <h2 style={{ fontSize: '2.5rem' }}>{terapeutaData?.clics || 0}</h2>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Clics en "Reservar"</p>
+                                </div>
+
+                                <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '2px solid var(--accent-light)' }}>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Leads</p>
+                                    <h2 style={{ fontSize: '2.5rem' }}>{leads.length}</h2>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Formularios completados</p>
+                                </div>
+
+                                <div style={{ padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', backgroundColor: '#f0fdf4' }}>
+                                    <p style={{ color: '#166534', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: '600' }}>Conversiones</p>
+                                    <h2 style={{ fontSize: '2.5rem', color: '#15803d' }}>{leads.filter(l => l.status === 'Paciente').length}</h2>
+                                    <p style={{ fontSize: '0.8rem', color: '#166534', opacity: 0.8, marginTop: '0.5rem' }}>Pacientes confirmados</p>
+                                </div>
+
+                                <div style={{ padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', backgroundColor: '#fef2f2' }}>
+                                    <p style={{ color: '#991b1b', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: '600' }}>Perdidos</p>
+                                    <h2 style={{ fontSize: '2.5rem', color: '#b91c1c' }}>{leads.filter(l => l.status === 'Perdido').length}</h2>
+                                    <p style={{ fontSize: '0.8rem', color: '#991b1b', opacity: 0.8, marginTop: '0.5rem' }}>Descartados o no asisten</p>
                                 </div>
                             </div>
 
@@ -390,6 +471,121 @@ export default function TherapistDashboard() {
                                             <span>• Hace 2 horas</span>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "perfil" && (
+                        <div className="animate-fade">
+                            <header style={{ marginBottom: '3rem' }}>
+                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Editar Datos</h1>
+                                <p style={{ color: 'var(--text-soft)' }}>Administra tu tarjeta de presentación pública y tu seguridad.</p>
+                            </header>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+                                {/* Change Password */}
+                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
+                                    <h3 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <ShieldAlert size={20} color="var(--primary)" /> Seguridad
+                                    </h3>
+                                    <form onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        setSaving(true);
+                                        const form = e.target as HTMLFormElement;
+                                        const pass = (form.elements.namedItem('new_password') as HTMLInputElement).value;
+                                        const conf = (form.elements.namedItem('confirm_password') as HTMLInputElement).value;
+
+                                        if (pass !== conf) {
+                                            alert("Las contraseñas no coinciden.");
+                                            setSaving(false);
+                                            return;
+                                        }
+
+                                        const { error } = await supabase.auth.updateUser({ password: pass });
+                                        if (error) alert("Error: " + error.message);
+                                        else {
+                                            alert("¡Contraseña Suprema actualizada! \nLa próxima vez usa esta clave para entrar.");
+                                            form.reset();
+                                        }
+                                        setSaving(false);
+                                    }}>
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Nueva Contraseña Suprema</label>
+                                            <input name="new_password" type="password" required minLength={6} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                        </div>
+                                        <div style={{ marginBottom: '2rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Confirmar Contraseña</label>
+                                            <input name="confirm_password" type="password" required minLength={6} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                        </div>
+                                        <button disabled={saving} type="submit" className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                                            Actualizar Contraseña
+                                        </button>
+                                    </form>
+                                </div>
+
+                                {/* Edit Public Profile */}
+                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                                    <h3 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <User size={20} color="var(--primary)" /> Perfil Público
+                                    </h3>
+                                    {terapeutaData ? (
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            setSaving(true);
+                                            const form = e.target as HTMLFormElement;
+
+                                            const tagsString = (form.elements.namedItem('tags') as HTMLInputElement).value;
+                                            const tagsArray = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+                                            const updates = {
+                                                title: (form.elements.namedItem('title') as HTMLInputElement).value,
+                                                price: (form.elements.namedItem('price') as HTMLInputElement).value,
+                                                specialty: (form.elements.namedItem('specialty') as HTMLInputElement).value,
+                                                bio: (form.elements.namedItem('bio') as HTMLTextAreaElement).value,
+                                                tags: tagsArray
+                                            };
+
+                                            const tId = localStorage.getItem('therapist_id');
+                                            const { error } = await supabase.from('terapeutas').update(updates).eq('id', parseInt(tId!));
+
+                                            if (error) alert("Error actualizando perfil: " + error.message);
+                                            else {
+                                                alert("¡Perfil público actualizado con éxito en /terapeutas!");
+                                                fetchTerapeutaData();
+                                            }
+                                            setSaving(false);
+                                        }}>
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Subtítulo Profesional</label>
+                                                <input name="title" defaultValue={terapeutaData?.title} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                            </div>
+                                            <div style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Valor Consulta</label>
+                                                    <input name="price" defaultValue={terapeutaData?.price} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Tópicos Principales</label>
+                                                    <input name="specialty" defaultValue={terapeutaData?.specialty} required placeholder="Ej: Ansiedad · Depresión" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                                </div>
+                                            </div>
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Tags de Especialidad (Separados por coma)</label>
+                                                <input name="tags" defaultValue={Array.isArray(terapeutaData?.tags) ? terapeutaData.tags.join(', ') : terapeutaData?.tags} placeholder="Ansiedad, Autoestima, Adultos Jóvenes" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: '0.4rem' }}>Se mostrarán como píldoras en tu tarjeta de perfil.</p>
+                                            </div>
+                                            <div style={{ marginBottom: '2rem' }}>
+                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Biografía Pública</label>
+                                                <textarea name="bio" defaultValue={terapeutaData?.bio} required rows={5} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', resize: 'vertical' }}></textarea>
+                                            </div>
+                                            <button disabled={saving} type="submit" className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                                                {saving ? "Guardando..." : "Guardar Cambios Públicos"}
+                                            </button>
+                                        </form>
+                                    ) : (
+                                        <p style={{ textAlign: 'center', color: 'var(--text-soft)', padding: '2rem 0' }}>Cargando datos de perfil...</p>
+                                    )}
                                 </div>
                             </div>
                         </div>

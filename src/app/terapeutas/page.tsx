@@ -1,27 +1,50 @@
 "use client";
-import { useState } from "react";
-import { Search, X, CheckCircle, Star, ShieldCheck, Award, Clock, ArrowRight, User, MousePointer2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, X, CheckCircle, Star, ShieldCheck, Award, Clock, ArrowRight, User, MousePointer2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import BookingFlow from "@/components/BookingFlow";
-
-import { TERAPEUTAS } from "@/data/terapeutas";
+import { supabase } from "@/lib/supabase";
 
 export default function Terapeutas() {
     const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
     const [step, setStep] = useState(1);
+    const [terapeutas, setTerapeutas] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleBookNow = (therapist: any) => {
+    useEffect(() => {
+        const fetchTerapeutas = async () => {
+            const { data, error } = await supabase
+                .from('terapeutas')
+                .select('*')
+                .order('rating', { ascending: false }); // Sort by rating as default
+
+            if (!error && data) {
+                // Point 3: Load Balancing - Sort therapists to show high availability first
+                const sorted = [...data].sort((a, b) => {
+                    const order: any = { "Alta": 1, "Media": 2, "Baja": 3 };
+                    return order[a.availability] - order[b.availability];
+                });
+                setTerapeutas(sorted);
+            }
+            setLoading(false);
+        };
+        fetchTerapeutas();
+    }, []);
+
+    const handleBookNow = async (therapist: any) => {
         setSelectedTherapist(therapist);
         setStep(1);
+
+        // Track Clic
+        await supabase.rpc('increment_clics', { therapist_id: therapist.id });
+    };
+
+    const handleProfileClick = async (therapistId: number) => {
+        // Track Profile Visit (Impresion)
+        await supabase.rpc('increment_impresiones', { therapist_id: therapistId });
     };
 
     const closeModal = () => setSelectedTherapist(null);
-
-    // Point 3: Load Balancing - Sort therapists to show high availability first
-    const sortedTherapists = [...TERAPEUTAS].sort((a, b) => {
-        const order: any = { "Alta": 1, "Media": 2, "Baja": 3 };
-        return order[a.availability] - order[b.availability];
-    });
 
     return (
         <>
@@ -43,67 +66,74 @@ export default function Terapeutas() {
                     </div>
                 </section>
 
-                <div style={{ padding: '2rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
-                    {sortedTherapists.map(t => (
-                        <div key={t.id} className="expert-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ position: 'relative', height: '240px', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
-                                <img src={t.image} alt={t.name} style={{ width: '180px', height: '180px' }} />
+                {loading ? (
+                    <div style={{ padding: '5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--text-soft)' }}>
+                        <Loader2 className="animate-spin" size={32} color="var(--accent)" />
+                        <p>Cargando disponibilidad de especialistas...</p>
+                    </div>
+                ) : (
+                    <div style={{ padding: '2rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
+                        {terapeutas.map((t: any) => (
+                            <div key={t.id} className="expert-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ position: 'relative', height: '240px', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
+                                    <img src={t.image} alt={t.name} style={{ width: '180px', height: '180px' }} />
 
-                                <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
-                                    <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--white)', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <ShieldCheck size={14} color="#27ae60" /> Especialista Verificado
+                                    <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--white)', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <ShieldCheck size={14} color="#27ae60" /> Especialista Verificado
+                                        </div>
+
+                                        {t.availability === "Alta" && (
+                                            <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--primary)', color: '#fff', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <Clock size={12} /> Disponibilidad Inmediata
+                                            </div>
+                                        )}
+                                        {t.availability === "Baja" && (
+                                            <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: '#f0efeb', color: 'var(--text-soft)', boxShadow: 'var(--shadow-sm)' }}>
+                                                Agenda Llenándose
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{ padding: '2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '1.4rem', marginBottom: '0.2rem', lineHeight: '1.2' }}>{t.name}</h3>
+                                            <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', fontWeight: '500' }}>{t.title}</p>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#f39c12', fontWeight: '700' }}>
+                                            <Star size={16} fill="#f39c12" /> {t.rating}
+                                        </div>
                                     </div>
 
-                                    {t.availability === "Alta" && (
-                                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: 'var(--primary)', color: '#fff', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <Clock size={12} /> Disponibilidad Inmediata
-                                        </div>
-                                    )}
-                                    {t.availability === "Baja" && (
-                                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', backgroundColor: '#f0efeb', color: 'var(--text-soft)', boxShadow: 'var(--shadow-sm)' }}>
-                                            Agenda Llenándose
-                                        </div>
-                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', color: 'var(--accent)', fontWeight: '600', fontSize: '1rem' }}>
+                                        {t.price}
+                                    </div>
+
+                                    <p style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '1rem', minHeight: '3rem' }}>{t.specialty}...</p>
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '2rem' }}>
+                                        {t.tags && t.tags.map((tag: string) => (
+                                            <span key={tag} style={{ padding: '0.25rem 0.6rem', backgroundColor: '#f0efeb', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--text-soft)', fontWeight: '500' }}>
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid #f0efeb', paddingTop: '1.5rem' }}>
+                                        <button onClick={() => handleBookNow(t)} className="premium-btn" style={{ flex: 1, justifyContent: 'center', gap: '0.5rem' }}>
+                                            Reservar Ahora
+                                        </button>
+                                        <Link href={`/terapeutas/${t.id}`} onClick={() => handleProfileClick(t.id)} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', cursor: 'pointer', backgroundColor: 'var(--white)' }}>
+                                            <User size={18} />
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div style={{ padding: '2rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                    <div>
-                                        <h3 style={{ fontSize: '1.4rem', marginBottom: '0.2rem', lineHeight: '1.2' }}>{t.name}</h3>
-                                        <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', fontWeight: '500' }}>{t.title}</p>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#f39c12', fontWeight: '700' }}>
-                                        <Star size={16} fill="#f39c12" /> {t.rating}
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', color: 'var(--accent)', fontWeight: '600', fontSize: '1rem' }}>
-                                    {t.price}
-                                </div>
-
-                                <p style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '1rem', minHeight: '3rem' }}>{t.specialty}...</p>
-
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '2rem' }}>
-                                    {t.tags.map(tag => (
-                                        <span key={tag} style={{ padding: '0.25rem 0.6rem', backgroundColor: '#f0efeb', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--text-soft)', fontWeight: '500' }}>
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid #f0efeb', paddingTop: '1.5rem' }}>
-                                    <button onClick={() => handleBookNow(t)} className="premium-btn" style={{ flex: 1, justifyContent: 'center', gap: '0.5rem' }}>
-                                        Reservar Ahora
-                                    </button>
-                                    <Link href={`/terapeutas/${t.id}`} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', cursor: 'pointer', backgroundColor: 'var(--white)' }}>
-                                        <User size={18} />
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
 
             </div>
 
