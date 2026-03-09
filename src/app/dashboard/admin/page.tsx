@@ -37,7 +37,7 @@ export default function AdminDashboard() {
         try {
             // 0. Cargar lista de terapeutas si no se ha hecho
             if (terapeutasList.length === 0) {
-                const { data: allTerapeutas } = await supabase.from('terapeutas').select('id, nombre');
+                const { data: allTerapeutas } = await supabase.from('terapeutas').select('id, name');
                 if (allTerapeutas) setTerapeutasList(allTerapeutas);
             }
 
@@ -57,16 +57,21 @@ export default function AdminDashboard() {
             }
 
             // 2. Obtener datos de pacientes
-            let patientQuery = supabase.from('pacientes').select('*, terapeutas(nombre)').order('created_at', { ascending: false });
+            let patientQuery = supabase.from('pacientes').select('*, terapeutas(name)').order('created_at', { ascending: false });
             if (therapistFilter !== 'all') {
                 patientQuery = patientQuery.eq('terapeuta_id', therapistFilter);
             }
             const { data: patientData, error: patientError } = await patientQuery;
 
+            let filteredPatients = [];
+            let totalPacientesCount = 0;
+            let pendientesCount = 0;
+            let perdidosCount = 0;
+
             if (!patientError && patientData) {
                 // Aplicar filtros de fecha localmente en los pacientes
                 const now = new Date();
-                let filteredPatients = patientData;
+                filteredPatients = patientData || [];
 
                 if (timeFilter !== 'all') {
                     filteredPatients = filteredPatients.filter(p => {
@@ -111,16 +116,20 @@ export default function AdminDashboard() {
                     });
                 }
 
-                const counts = {
-                    totalPacientes: filteredPatients.filter(d => d.status === 'Paciente').length,
-                    pendientes: filteredPatients.filter(d => d.status === 'Leads' || d.status === 'Pendiente').length,
-                    perdidos: filteredPatients.filter(d => d.status === 'Perdido').length,
-                    totalImpresiones: impressionsSum,
-                    totalClics: clicsSum
-                };
-                setStats(counts);
-                setPacientes(filteredPatients);
+                totalPacientesCount = filteredPatients.filter(d => d.status === 'Paciente').length;
+                pendientesCount = filteredPatients.filter(d => d.status === 'Leads' || d.status === 'Pendiente').length;
+                perdidosCount = filteredPatients.filter(d => d.status === 'Perdido').length;
             }
+
+            const counts = {
+                totalPacientes: totalPacientesCount,
+                pendientes: pendientesCount,
+                perdidos: perdidosCount,
+                totalImpresiones: impressionsSum,
+                totalClics: clicsSum
+            };
+            setStats(counts);
+            setPacientes(filteredPatients);
         } catch (err) {
             console.error("Error fetching admin stats:", err);
         }
@@ -131,7 +140,7 @@ export default function AdminDashboard() {
         if (authorized) {
             fetchStats();
 
-            // Suscripción Realtime para pacientes
+            // Suscripción Realtime
             const channel = supabase
                 .channel('admin-changes')
                 .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'pacientes' }, () => {
@@ -200,7 +209,7 @@ export default function AdminDashboard() {
                         >
                             <option value="all">Todos los Terapeutas</option>
                             {terapeutasList.map(t => (
-                                <option key={t.id} value={t.id}>{t.nombre}</option>
+                                <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
                         </select>
                     </div>
@@ -324,13 +333,13 @@ export default function AdminDashboard() {
                             <div key={paciente.id || idx} style={{ padding: '1.2rem', border: '1px solid #eee', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }}>
                                 <div>
                                     <h4 style={{ margin: '0 0 0.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        {paciente.nombre} <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', backgroundColor: '#ffeaa7', borderRadius: '4px', color: '#d35400' }}>{paciente.status}</span>
+                                        {paciente.name} <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', backgroundColor: '#ffeaa7', borderRadius: '4px', color: '#d35400' }}>{paciente.status}</span>
                                     </h4>
                                     <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                                        {paciente.sesion_fecha ? `${paciente.sesion_fecha} con ${paciente.terapeutas?.nombre || 'Teraputa'}` : 'Sin fecha definida aún'}
+                                        {paciente.sesion_fecha ? `${paciente.sesion_fecha} con ${paciente.terapeutas?.name || 'Terapeuta'}` : 'Sin fecha definida aún'}
                                     </p>
                                 </div>
-                                <button onClick={() => handleSendWhatsApp(paciente.telefono || '', paciente.nombre)} className="secondary-btn" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#27ae60', borderColor: '#27ae60' }}>
+                                <button onClick={() => handleSendWhatsApp(paciente.telefono || '', paciente.name)} className="secondary-btn" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#27ae60', borderColor: '#27ae60' }}>
                                     <MessageCircle size={16} /> Enviar Recordatorio
                                 </button>
                             </div>
