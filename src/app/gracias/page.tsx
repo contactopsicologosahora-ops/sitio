@@ -17,7 +17,7 @@ function GraciasContent() {
 
                 <h1 style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>¡Solicitud Recibida!</h1>
                 <p style={{ fontSize: '1.2rem', color: 'var(--text-soft)', marginBottom: '3.5rem', lineHeight: '1.6' }}>
-                    Hemos enviado tus datos al especialista. Recibirás un contacto a la brevedad para confirmar tu primera sesión.
+                    Hemos enviado tus datos del paciente al especialista. Recibirás un contacto a la brevedad para confirmar tu primera sesión.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>

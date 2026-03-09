@@ -59,7 +59,7 @@ export default function AdminDashboard() {
             // 2. Obtener datos de pacientes
             let patientQuery = supabase.from('pacientes').select('*, terapeutas(name)').order('created_at', { ascending: false });
             if (therapistFilter !== 'all') {
-                patientQuery = patientQuery.eq('terapeuta_id', therapistFilter);
+                patientQuery = patientQuery.eq('therapist_id', therapistFilter);
             }
             const { data: patientData, error: patientError } = await patientQuery;
 

@@ -73,58 +73,59 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // Record booking time for lockout
-    localStorage.setItem("last_booking_time", Date.now().toString());
-
-    // Save to Supabase (if keys exist)
-    const { data, error } = await supabase
-      .from('pacientes')
-      .insert([
-        {
-          name: formData.name,
-          phone: formData.phone,
-          urgent: formData.urgency,
-          time_range: formData.timeRange,
-          therapist_id: therapist.id,
-          status: 'Pendiente'
-        }
-      ]);
-
-    if (error) {
-      console.error("Supabase Save Error (Falling back to LocalStorage):", error.message);
-      // Mock fallback for testing if Supabase is not ready
-      const existingLeads = JSON.parse(localStorage.getItem("leads_backup") || "[]");
-      localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist.id, date: new Date().toISOString(), status: 'Pendiente' }]));
-    }
-
-    // Trigger Email Notification
     try {
-      console.log("Iniciando envío de correo de notificación...");
-      const response = await fetch('/api/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          patientData: formData,
-          therapistEmail: therapist.email || 'contactopsicologosahora@gmail.com',
-          therapistName: therapist.name
-        }),
-      });
+      // Record booking time for lockout
+      localStorage.setItem("last_booking_time", Date.now().toString());
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error en la respuesta del servidor de correo:", response.status, errorText);
-      } else {
-        const result = await response.json();
-        console.log("Servidor confirmó envío de correo:", result);
+      // Save to Supabase
+      const { error } = await supabase
+        .from('pacientes')
+        .insert([
+          {
+            name: formData.name,
+            phone: formData.phone,
+            urgent: formData.urgency,
+            time_range: formData.timeRange,
+            therapist_id: therapist.id, // Unified column name
+            status: 'Pendiente'
+          }
+        ]);
+
+      if (error) {
+        console.error("Supabase Save Error (Falling back to LocalStorage):", error.message);
+        // Backup to localStorage if DB fails
+        const existingLeads = JSON.parse(localStorage.getItem("leads_backup") || "[]");
+        localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist.id, date: new Date().toISOString(), status: 'Pendiente' }]));
       }
-    } catch (e) {
-      console.error("Fallo de red al intentar enviar correo:", e);
-    }
 
-    // Redirect to thank you page
-    router.push(`/gracias?therapistId=${therapist.id}`);
+      // Trigger Email Notification (Non-blocking)
+      const fireEmail = async () => {
+        try {
+          await fetch('/api/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              patientData: formData,
+              therapistEmail: therapist.email || 'contactopsicologosahora@gmail.com',
+              therapistName: therapist.name || 'Especialista'
+            }),
+          });
+        } catch (e) {
+          console.error("Fallo de red al intentar enviar correo:", e);
+        }
+      };
+
+      fireEmail();
+
+      // Redirect to thank you page
+      router.push(`/gracias?therapistId=${therapist.id}`);
+    } catch (err) {
+      console.error("Critical error during submission:", err);
+      // Even if everything fails, try to redirect or show message to avoid "Application Error"
+      router.push(`/gracias?therapistId=${therapist.id}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLocked) {
@@ -174,7 +175,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       <div className="animate-fade" key={step}>
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {therapist.name.split(" ")[1]}?</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {(therapist.name || "").split(" ")[1] || "tu especialista"}?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <button
                 onClick={() => { setFormData({ ...formData, urgency: "Calendario Directo" }); handleNext(); }}
