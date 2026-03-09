@@ -42,8 +42,8 @@ export default function AdminDashboard() {
                 if (allTerapeutas) setTerapeutasList(allTerapeutas || []);
             }
 
-            // 1. Obtener métricas de terapeutas (Impresiones y Clics)
-            let therapistQuery = supabase.from('terapeutas').select('impresiones, clics, id');
+            // 1. Obtener métricas de terapeutas (Impresiones, Clics y ahora Leads)
+            let therapistQuery = supabase.from('terapeutas').select('impresiones, clics, id, leads');
             if (therapistFilter !== 'all') {
                 therapistQuery = therapistQuery.eq('id', therapistFilter);
             }
