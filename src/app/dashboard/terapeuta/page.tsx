@@ -220,40 +220,51 @@ export default function TherapistDashboard() {
         <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
             <div style={{ display: 'flex' }}>
                 {/* Sidebar */}
-                <aside style={{ width: '280px', backgroundColor: 'var(--primary)', color: '#fff', padding: '3rem 1.5rem', height: '100vh', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column' }}>
+                <aside style={{
+                    width: '280px',
+                    backgroundColor: 'var(--primary)',
+                    color: '#fff',
+                    padding: '3rem 1.5rem',
+                    minHeight: '100vh',
+                    position: 'sticky',
+                    top: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: 'var(--shadow-lg)'
+                }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></div>
                         Psicólogos Ahora
                     </div>
 
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+                    <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
                         <button
                             onClick={() => setActiveTab("pacientes")}
-                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "pacientes" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "pacientes" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "pacientes" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "pacientes" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <Users size={20} /> Pacientes
                         </button>
                         <button
                             onClick={() => setActiveTab("metricas")}
-                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "metricas" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "metricas" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "metricas" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "metricas" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <TrendingUp size={20} /> Métricas
                         </button>
                         <button
                             onClick={() => setActiveTab("agenda")}
-                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "agenda" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "agenda" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "agenda" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "agenda" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <Calendar size={20} /> Mi Agenda
                         </button>
                         <button
                             onClick={() => setActiveTab("comunidad")}
-                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "comunidad" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "comunidad" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "comunidad" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "comunidad" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <ShieldAlert size={20} /> Peer Assist
                         </button>
                         <button
                             onClick={() => setActiveTab("perfil")}
-                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "perfil" ? '#fff' : '#rgba(255,255,255,0.6)', backgroundColor: activeTab === "perfil" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                            style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "perfil" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "perfil" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
                         >
                             <User size={20} /> Editar Perfil
                         </button>
@@ -261,17 +272,32 @@ export default function TherapistDashboard() {
 
                     <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <User color="var(--primary)" size={18} />
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <User color="#fff" size={18} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0 }}>Ps. {userName}</p>
-                                <p style={{ fontSize: '0.75rem', opacity: 0.6, margin: 0 }}>Psicoterapeuta Online</p>
+                                <p style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0, color: '#fff' }}>Ps. {userName}</p>
+                                <p style={{ fontSize: '0.75rem', opacity: 0.6, margin: 0, color: '#fff' }}>Psicoterapeuta Online</p>
                             </div>
                         </div>
                         <button
                             onClick={handleLogout}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', background: 'none', color: '#fff', cursor: 'pointer', opacity: 0.8, fontSize: '0.9rem' }}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.8rem',
+                                padding: '0.8rem',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                color: '#fff',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                fontSize: '0.9rem'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
                         >
                             <LogOut size={16} /> Cerrar Sesión
                         </button>
