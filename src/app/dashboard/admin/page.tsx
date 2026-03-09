@@ -17,6 +17,12 @@ export default function AdminDashboard() {
     const [pacientes, setPacientes] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Filtros
+    const [timeFilter, setTimeFilter] = useState('all');
+    const [therapistFilter, setTherapistFilter] = useState('all');
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [terapeutasList, setTerapeutasList] = useState<any[]>([]);
+
     useEffect(() => {
         const role = localStorage.getItem("user_role");
         if (role !== "admin") {
@@ -29,10 +35,18 @@ export default function AdminDashboard() {
     const fetchStats = async () => {
         setLoading(true);
         try {
+            // 0. Cargar lista de terapeutas si no se ha hecho
+            if (terapeutasList.length === 0) {
+                const { data: allTerapeutas } = await supabase.from('terapeutas').select('id, nombre');
+                if (allTerapeutas) setTerapeutasList(allTerapeutas);
+            }
+
             // 1. Obtener métricas de terapeutas (Impresiones y Clics)
-            const { data: therapistData, error: therapistError } = await supabase
-                .from('terapeutas')
-                .select('impresiones, clics');
+            let therapistQuery = supabase.from('terapeutas').select('impresiones, clics, id');
+            if (therapistFilter !== 'all') {
+                therapistQuery = therapistQuery.eq('id', therapistFilter);
+            }
+            const { data: therapistData, error: therapistError } = await therapistQuery;
 
             let impressionsSum = 0;
             let clicsSum = 0;
@@ -43,21 +57,69 @@ export default function AdminDashboard() {
             }
 
             // 2. Obtener datos de pacientes
-            const { data: patientData, error: patientError } = await supabase
-                .from('pacientes')
-                .select('*, terapeutas(nombre)')
-                .order('created_at', { ascending: false });
+            let patientQuery = supabase.from('pacientes').select('*, terapeutas(nombre)').order('created_at', { ascending: false });
+            if (therapistFilter !== 'all') {
+                patientQuery = patientQuery.eq('terapeuta_id', therapistFilter);
+            }
+            const { data: patientData, error: patientError } = await patientQuery;
 
             if (!patientError && patientData) {
+                // Aplicar filtros de fecha localmente en los pacientes
+                const now = new Date();
+                let filteredPatients = patientData;
+
+                if (timeFilter !== 'all') {
+                    filteredPatients = filteredPatients.filter(p => {
+                        const createdAt = new Date(p.created_at);
+                        const diffTime = Math.abs(now.getTime() - createdAt.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const startOfYesterday = new Date(startOfToday);
+                        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+                        switch (timeFilter) {
+                            case 'today':
+                                return createdAt >= startOfToday;
+                            case 'yesterday':
+                                return createdAt >= startOfYesterday && createdAt < startOfToday;
+                            case '7days':
+                                return diffDays <= 7;
+                            case '14days':
+                                return diffDays <= 14;
+                            case '30days':
+                                return diffDays <= 30;
+                            case 'thisMonth':
+                                return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
+                            case 'lastMonth':
+                                let lastMonth = now.getMonth() - 1;
+                                let year = now.getFullYear();
+                                if (lastMonth < 0) { lastMonth = 11; year--; }
+                                return createdAt.getMonth() === lastMonth && createdAt.getFullYear() === year;
+                            case 'thisYear':
+                                return createdAt.getFullYear() === now.getFullYear();
+                            case 'custom':
+                                if (dateRange.start && dateRange.end) {
+                                    const startParsed = new Date(dateRange.start + 'T00:00:00');
+                                    const endParsed = new Date(dateRange.end + 'T23:59:59');
+                                    return createdAt >= startParsed && createdAt <= endParsed;
+                                }
+                                return true;
+                            default:
+                                return true;
+                        }
+                    });
+                }
+
                 const counts = {
-                    totalPacientes: patientData.filter(d => d.status === 'Paciente').length,
-                    pendientes: patientData.filter(d => d.status === 'Leads' || d.status === 'Pendiente').length,
-                    perdidos: patientData.filter(d => d.status === 'Perdido').length,
+                    totalPacientes: filteredPatients.filter(d => d.status === 'Paciente').length,
+                    pendientes: filteredPatients.filter(d => d.status === 'Leads' || d.status === 'Pendiente').length,
+                    perdidos: filteredPatients.filter(d => d.status === 'Perdido').length,
                     totalImpresiones: impressionsSum,
                     totalClics: clicsSum
                 };
                 setStats(counts);
-                setPacientes(patientData);
+                setPacientes(filteredPatients);
             }
         } catch (err) {
             console.error("Error fetching admin stats:", err);
@@ -84,7 +146,7 @@ export default function AdminDashboard() {
                 supabase.removeChannel(channel);
             };
         }
-    }, [authorized]);
+    }, [authorized, timeFilter, therapistFilter, dateRange.start, dateRange.end]);
 
     const handleLogout = async () => {
         localStorage.removeItem("user_role");
@@ -101,14 +163,50 @@ export default function AdminDashboard() {
 
     return (
         <div style={{ padding: '3rem 5%', backgroundColor: '#f4f7f6', minHeight: '100vh' }}>
-            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2rem' }}>Panel de Control Global</h1>
                     <p style={{ color: 'var(--text-light)' }}>Métricas de rendimiento del centro basadas en los KPIs de Supabase.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', backgroundColor: '#fff', padding: '0.5rem', borderRadius: '8px', border: '1px solid #eee' }}>
+                        <select
+                            value={timeFilter}
+                            onChange={(e) => setTimeFilter(e.target.value)}
+                            style={{ padding: '0.5rem', border: 'none', backgroundColor: 'transparent', outline: 'none', cursor: 'pointer', fontSize: '0.9rem' }}
+                        >
+                            <option value="all">Todos los tiempos</option>
+                            <option value="today">Hoy</option>
+                            <option value="yesterday">Ayer</option>
+                            <option value="7days">Últimos 7 días</option>
+                            <option value="14days">Últimos 14 días</option>
+                            <option value="30days">Últimos 30 días</option>
+                            <option value="thisMonth">Este mes</option>
+                            <option value="lastMonth">Mes anterior</option>
+                            <option value="thisYear">Este año</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                        {(timeFilter === 'custom') && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingLeft: '0.5rem', borderLeft: '1px solid #eee' }}>
+                                <input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} style={{ padding: '0.3rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.8rem' }} />
+                                <span>-</span>
+                                <input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} style={{ padding: '0.3rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.8rem' }} />
+                            </div>
+                        )}
+                        <select
+                            value={therapistFilter}
+                            onChange={(e) => setTherapistFilter(e.target.value)}
+                            style={{ padding: '0.5rem', border: 'none', backgroundColor: 'transparent', outline: 'none', cursor: 'pointer', borderLeft: '1px solid #eee', fontSize: '0.9rem' }}
+                        >
+                            <option value="all">Todos los Terapeutas</option>
+                            {terapeutasList.map(t => (
+                                <option key={t.id} value={t.id}>{t.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <button onClick={fetchStats} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refrescar Datos Reales
+                        <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refrescar
                     </button>
                     <button onClick={handleLogout} className="secondary-btn" style={{ color: '#e74c3c', borderColor: '#e74c3c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <LogOut size={16} /> Salir
