@@ -25,6 +25,12 @@ export default function Terapeutas() {
                     return order[a.availability] - order[b.availability];
                 });
                 setTerapeutas(sorted);
+
+                // Track Impressions for all currently visible therapists
+                const displayedIds = sorted.map(t => t.id);
+                if (displayedIds.length > 0) {
+                    await supabase.rpc('increment_impresiones_batch', { therapist_ids: displayedIds });
+                }
             }
             setLoading(false);
         };
