@@ -12,7 +12,8 @@ export default function AdminDashboard() {
         pendientes: 0,
         perdidos: 0,
         totalImpresiones: 0,
-        totalClics: 0
+        totalClics: 0,
+        totalLeads: 0
     });
     const [pacientes, setPacientes] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -67,6 +68,7 @@ export default function AdminDashboard() {
             let totalPacientesCount = 0;
             let pendientesCount = 0;
             let perdidosCount = 0;
+            let totalLeadsCount = 0;
 
             if (!patientError && patientData) {
                 // Aplicar filtros de fecha localmente en los pacientes
@@ -116,6 +118,7 @@ export default function AdminDashboard() {
                     });
                 }
 
+                totalLeadsCount = filteredPatients.length;
                 totalPacientesCount = filteredPatients.filter(d => d.status === 'Paciente').length;
                 pendientesCount = filteredPatients.filter(d => d.status === 'Leads' || d.status === 'Pendiente').length;
                 perdidosCount = filteredPatients.filter(d => d.status === 'Perdido').length;
@@ -126,7 +129,8 @@ export default function AdminDashboard() {
                 pendientes: pendientesCount,
                 perdidos: perdidosCount,
                 totalImpresiones: impressionsSum,
-                totalClics: clicsSum
+                totalClics: clicsSum,
+                totalLeads: totalLeadsCount
             };
             setStats(counts);
             setPacientes(filteredPatients);
@@ -237,11 +241,11 @@ export default function AdminDashboard() {
                     <h2 style={{ margin: 0 }}>{stats.totalClics.toLocaleString()}</h2>
                 </div>
                 <div className="premium-card" style={{ borderLeft: '5px solid #f1c40f' }}>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Leads / Pendientes</p>
-                    <h2 style={{ margin: 0 }}>{stats.pendientes}</h2>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Leads Generados (Total)</p>
+                    <h2 style={{ margin: 0 }}>{stats.totalLeads}</h2>
                 </div>
                 <div className="premium-card" style={{ borderLeft: '5px solid #2ecc71' }}>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Agendamiento Real</p>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Agendamiento Real (Paciente)</p>
                     <h2 style={{ margin: 0 }}>{stats.totalPacientes}</h2>
                 </div>
             </div>
@@ -289,14 +293,14 @@ export default function AdminDashboard() {
                         <div style={{ backgroundColor: 'rgba(45, 62, 64, 0.6)', color: '#fff', padding: '1rem 1.5rem', borderRadius: '12px', width: '80%', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.8 }}>Paso 3: Leads Generados</p>
-                                <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{stats.pendientes + stats.totalPacientes} usuarios</h4>
+                                <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{stats.totalLeads} usuarios</h4>
                             </div>
-                            <b style={{ fontSize: '1.2rem' }}>{stats.totalClics > 0 ? (((stats.pendientes + stats.totalPacientes) / stats.totalClics) * 100).toFixed(1) : 0}%</b>
+                            <b style={{ fontSize: '1.2rem' }}>{stats.totalClics > 0 ? ((stats.totalLeads / stats.totalClics) * 100).toFixed(1) : 0}%</b>
                         </div>
 
                         {/* Dropoff Arrow */}
                         <div style={{ textAlign: 'center', color: '#e74c3c', fontSize: '0.85rem', fontWeight: '600' }}>
-                            ↓ Conversión Final
+                            ↓ Conversión Final (Lead a Paciente)
                         </div>
 
                         {/* Step 4 */}
@@ -305,7 +309,7 @@ export default function AdminDashboard() {
                                 <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>Paso 4: Agendamiento Real</p>
                                 <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{stats.totalPacientes} usuarios</h4>
                             </div>
-                            <b style={{ fontSize: '1.2rem' }}>{stats.totalImpresiones > 0 ? ((stats.totalPacientes / stats.totalImpresiones) * 100).toFixed(2) : 0}%</b>
+                            <b style={{ fontSize: '1.2rem' }}>{stats.totalLeads > 0 ? ((stats.totalPacientes / stats.totalLeads) * 100).toFixed(1) : 0}%</b>
                         </div>
 
                     </div>
