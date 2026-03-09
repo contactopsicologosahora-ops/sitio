@@ -38,8 +38,8 @@ export default function AdminDashboard() {
         try {
             // 0. Cargar lista de terapeutas si no se ha hecho
             if (terapeutasList.length === 0) {
-                const { data: allTerapeutas } = await supabase.from('terapeutas').select('id, name');
-                if (allTerapeutas) setTerapeutasList(allTerapeutas);
+                const { data: allTerapeutas } = await supabase.from('terapeutas').select('id, name, impresiones, clics, leads');
+                if (allTerapeutas) setTerapeutasList(allTerapeutas || []);
             }
 
             // 1. Obtener métricas de terapeutas (Impresiones y Clics)
@@ -358,6 +358,46 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Rendimiento por Especialista */}
+                <div style={{ backgroundColor: '#fff', borderRadius: '24px', padding: '3rem', boxShadow: 'var(--shadow-md)', marginBottom: '3rem' }}>
+                    <h3 style={{ fontSize: '1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <PieChart size={24} color="var(--accent)" /> Rendimiento por Especialista
+                    </h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid #eee' }}>
+                                    <th style={{ padding: '1rem', color: 'var(--text-soft)', fontWeight: '600' }}>Especialista</th>
+                                    <th style={{ padding: '1rem', color: 'var(--text-soft)', fontWeight: '600' }}>Impresiones</th>
+                                    <th style={{ padding: '1rem', color: 'var(--text-soft)', fontWeight: '600' }}>Clics "Reservar"</th>
+                                    <th style={{ padding: '1rem', color: 'var(--text-soft)', fontWeight: '600' }}>Leads (Total)</th>
+                                    <th style={{ padding: '1rem', color: 'var(--text-soft)', fontWeight: '600' }}>Conversión (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {terapeutasList.map(t => {
+                                    const convRate = t.impresiones > 0 ? ((t.leads || 0) / t.impresiones * 100).toFixed(1) : '0';
+                                    return (
+                                        <tr key={t.id} style={{ borderBottom: '1px solid #fafafa' }}>
+                                            <td style={{ padding: '1.2rem', fontWeight: '500' }}>{t.name}</td>
+                                            <td style={{ padding: '1.2rem' }}>{t.impresiones || 0}</td>
+                                            <td style={{ padding: '1.2rem' }}>{t.clics || 0}</td>
+                                            <td style={{ padding: '1.2rem', color: 'var(--accent)', fontWeight: 'bold' }}>{t.leads || 0}</td>
+                                            <td style={{ padding: '1.2rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div style={{ height: '6px', width: '60px', backgroundColor: '#eee', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${Math.min(parseFloat(convRate) * 2, 100)}%`, backgroundColor: 'var(--accent)' }}></div>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.85rem' }}>{convRate}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     );

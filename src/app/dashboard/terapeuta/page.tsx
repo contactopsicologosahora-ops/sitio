@@ -600,6 +600,7 @@ export default function TherapistDashboard() {
                                             price: (form.elements.namedItem('price') as HTMLInputElement).value,
                                             specialty: (form.elements.namedItem('specialty') as HTMLInputElement).value,
                                             bio: (form.elements.namedItem('bio') as HTMLTextAreaElement).value,
+                                            calendar_url: (form.elements.namedItem('calendar_url') as HTMLInputElement).value,
                                             tags: tagsArray
                                         };
 
@@ -632,9 +633,14 @@ export default function TherapistDashboard() {
                                             <input name="tags" defaultValue={Array.isArray(terapeutaData?.tags) ? terapeutaData.tags.join(', ') : terapeutaData?.tags} placeholder="Ansiedad, Autoestima, Adultos Jóvenes" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
                                             <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: '0.4rem' }}>Se mostrarán como píldoras en tu tarjeta de perfil.</p>
                                         </div>
-                                        <div style={{ marginBottom: '2rem' }}>
+                                        <div style={{ marginBottom: '1.5rem' }}>
                                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Biografía Pública</label>
                                             <textarea name="bio" defaultValue={terapeutaData?.bio} required rows={5} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', resize: 'vertical' }}></textarea>
+                                        </div>
+                                        <div style={{ marginBottom: '2rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Link de Agenda Externa (Calendly, etc.)</label>
+                                            <input name="calendar_url" defaultValue={terapeutaData?.calendar_url} placeholder="https://calendly.com/tu-usuario" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: '0.4rem' }}>Este link se mostrará al paciente en la página de confirmación.</p>
                                         </div>
                                         <button disabled={saving} type="submit" className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
                                             {saving ? "Guardando..." : "Guardar Cambios Públicos"}

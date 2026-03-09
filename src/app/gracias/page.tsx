@@ -2,11 +2,40 @@
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Calendar, Home } from "lucide-react";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 function GraciasContent() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
+    const [calendarUrl, setCalendarUrl] = useState<string>("#");
+
+    useEffect(() => {
+        if (therapistId && therapistId !== 'error') {
+            const fetchTherapistAndIncrementLead = async () => {
+                const { data: therapist, error } = await supabase
+                    .from('terapeutas')
+                    .select('id, calendar_url')
+                    .eq('id', parseInt(therapistId))
+                    .single();
+
+                if (error) {
+                    console.error("Error fetching therapist:", error);
+                } else if (therapist) {
+                    if (therapist.calendar_url) {
+                        setCalendarUrl(therapist.calendar_url);
+                    }
+                    // Track Lead Generation (Prevent double count on refresh)
+                    const trackKey = `lead_tracked_${therapistId}`;
+                    if (!sessionStorage.getItem(trackKey)) {
+                        await supabase.rpc('increment_leads', { therapist_id: therapist.id });
+                        sessionStorage.setItem(trackKey, 'true');
+                    }
+                }
+            };
+            fetchTherapistAndIncrementLead();
+        }
+    }, [therapistId]);
 
     return (
         <div className="animate-fade" style={{
@@ -56,9 +85,15 @@ function GraciasContent() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '450px', margin: '0 auto' }}>
-                    <button className="premium-btn" style={{ padding: '1.3rem', justifyContent: 'center', gap: '1rem', fontSize: '1.1rem', width: '100%' }}>
+                    <a
+                        href={calendarUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="premium-btn"
+                        style={{ padding: '1.3rem', justifyContent: 'center', gap: '1rem', fontSize: '1.1rem', width: '100%', textDecoration: 'none' }}
+                    >
                         <Calendar size={24} /> Agendar directamente en el calendario
-                    </button>
+                    </a>
 
                     <Link href="/" className="secondary-btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', padding: '1.2rem', textDecoration: 'none' }}>
                         <Home size={20} /> Volver al Inicio
