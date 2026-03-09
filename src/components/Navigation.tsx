@@ -34,7 +34,7 @@ export default function Navigation() {
     };
 
     return (
-        <header className="glass-morphism" style={{
+        <header style={{
             position: 'fixed',
             top: 0,
             left: 0,
@@ -44,7 +44,10 @@ export default function Navigation() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            borderBottom: '1px solid rgba(0,0,0,0.06)',
             gap: '1rem',
             transition: 'all 0.3s ease'
         }}>
@@ -96,11 +99,11 @@ export default function Navigation() {
                         <li><Link href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary)', textDecoration: 'none', transition: 'color 0.2s' }}>Expertos</Link></li>
                         <li style={{ marginLeft: '0.5rem' }}>
                             {role ? (
-                                <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} className="premium-btn" style={{ padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}>
+                                <Link href={role === "admin" ? "/dashboard/admin" : "/dashboard/terapeuta"} className="premium-btn" style={{ padding: '0.6rem 1.4rem', fontSize: '0.85rem', height: '40px' }}>
                                     <User size={16} /> Mi Panel
                                 </Link>
                             ) : (
-                                <Link href="/login" className="premium-btn" style={{ padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}>
+                                <Link href="/login" className="premium-btn" style={{ padding: '0.6rem 1.4rem', fontSize: '0.85rem', height: '40px' }}>
                                     Ingresar
                                 </Link>
                             )}
