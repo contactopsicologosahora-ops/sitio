@@ -51,18 +51,20 @@ export default function AdminDashboard() {
 
             let impressionsSum = 0;
             let clicsSum = 0;
+            let leadsSum = 0;
 
             if (!therapistError && therapistData) {
                 impressionsSum = therapistData.reduce((acc, curr) => acc + (curr.impresiones || 0), 0);
                 clicsSum = therapistData.reduce((acc, curr) => acc + (curr.clics || 0), 0);
+                leadsSum = therapistData.reduce((acc, curr) => acc + (curr.leads || 0), 0);
             }
 
-            // 2. Obtener datos de pacientes
-            let patientQuery = supabase.from('pacientes').select('*, terapeutas(name)').order('created_at', { ascending: false });
+            // 2. Obtener datos de pacientes (Consulta simplificada sin join para evitar errores de FK)
+            let patientQuery = supabase.from('pacientes').select('*').order('created_at', { ascending: false });
             if (therapistFilter !== 'all') {
                 patientQuery = patientQuery.eq('therapist_id', therapistFilter);
             }
-            const { data: patientData, error: patientError } = await patientQuery;
+            const { data: patientRawData, error: patientError } = await patientQuery;
 
             let filteredPatients = [];
             let totalPacientesCount = 0;
@@ -70,10 +72,16 @@ export default function AdminDashboard() {
             let perdidosCount = 0;
             let totalLeadsCount = 0;
 
-            if (!patientError && patientData) {
+            if (!patientError && patientRawData) {
+                // Enriquecer datos con nombre del terapeuta localmente
+                const enrichedPatients = patientRawData.map(p => ({
+                    ...p,
+                    terapeutas: { name: terapeutasList.find(t => t.id === p.therapist_id)?.name || 'Especialista' }
+                }));
+
                 // Aplicar filtros de fecha localmente en los pacientes
                 const now = new Date();
-                filteredPatients = patientData || [];
+                filteredPatients = enrichedPatients;
 
                 if (timeFilter !== 'all') {
                     filteredPatients = filteredPatients.filter(p => {
@@ -130,7 +138,7 @@ export default function AdminDashboard() {
                 perdidos: perdidosCount,
                 totalImpresiones: impressionsSum,
                 totalClics: clicsSum,
-                totalLeads: totalLeadsCount
+                totalLeads: timeFilter === 'all' && therapistFilter === 'all' ? Math.max(leadsSum, totalLeadsCount) : totalLeadsCount
             };
             setStats(counts);
             setPacientes(filteredPatients);
