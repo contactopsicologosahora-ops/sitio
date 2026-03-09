@@ -338,9 +338,13 @@ export default function TherapistDashboard() {
                                     <p style={{ color: 'var(--text-soft)' }}>Análisis de rendimiento y conversión transversal de tu perfil.</p>
                                 </div>
                                 <select style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid #ddd', backgroundColor: '#fff', fontSize: '0.9rem' }}>
-                                    <option>Histórico</option>
-                                    <option>Últimos 30 días</option>
-                                    <option>Este año</option>
+                                    <option value="all">Histórico</option>
+                                    <option value="today">Hoy</option>
+                                    <option value="7d">Últimos 7 días</option>
+                                    <option value="30d">Últimos 30 días</option>
+                                    <option value="90d">Últimos 3 meses</option>
+                                    <option value="6m">Últimos 6 meses</option>
+                                    <option value="year">Este año</option>
                                 </select>
                             </header>
 
@@ -455,7 +459,7 @@ export default function TherapistDashboard() {
                                         </p>
                                     </div>
                                 </div>
-                                <button onClick={() => alert("Abriendo formulario seguro de Supervisión Flash...")} className="premium-btn" style={{ padding: '1rem 2rem' }}>
+                                <button id="panic-btn" onClick={handlePanicButton} className="premium-btn" style={{ padding: '1rem 2rem' }}>
                                     <MessageSquare size={18} style={{ marginRight: '0.5rem' }} /> Solicitar Supervisión de Caso
                                 </button>
 

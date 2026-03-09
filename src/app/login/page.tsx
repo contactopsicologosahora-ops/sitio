@@ -47,7 +47,13 @@ export default function LoginPage() {
                 if (password === expectedPassword) {
                     localStorage.setItem("user_role", "terapeuta");
                     localStorage.setItem("user_name", foundTherapist.name);
-                    localStorage.setItem("therapist_id", foundTherapist.id.toString());
+                    // Buscar el ID real en Supabase por email
+                    const { data: tData } = await supabase
+                        .from('terapeutas')
+                        .select('id')
+                        .eq('email', email)
+                        .single();
+                    localStorage.setItem("therapist_id", (tData?.id || foundTherapist.id).toString());
                     router.push("/dashboard/terapeuta");
                     return;
                 }
@@ -59,8 +65,21 @@ export default function LoginPage() {
         }
 
         if (data?.user) {
-            // Check metadata or query a 'profiles' table for the role
-            // Defaulting to therapist for now for testing
+            // Buscar terapeuta por email en Supabase para obtener nombre e ID real
+            const { data: tData } = await supabase
+                .from('terapeutas')
+                .select('id, name')
+                .eq('email', data.user.email)
+                .single();
+
+            if (tData) {
+                localStorage.setItem("user_role", "terapeuta");
+                localStorage.setItem("user_name", tData.name);
+                localStorage.setItem("therapist_id", tData.id.toString());
+            } else {
+                localStorage.setItem("user_role", "terapeuta");
+                localStorage.setItem("user_name", data.user.email || "Especialista");
+            }
             router.push("/dashboard/terapeuta");
         }
     };
