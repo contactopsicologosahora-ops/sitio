@@ -35,10 +35,18 @@ export default function TherapistDashboard() {
 
     const fetchLeads = async () => {
         setLoading(true);
-        const { data, error } = await supabase
+        const tId = localStorage.getItem('therapist_id');
+
+        let query = supabase
             .from('pacientes')
             .select('*')
             .order('created_at', { ascending: false });
+
+        if (tId) {
+            query = query.eq('therapist_id', parseInt(tId));
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error("Error fetching leads from Supabase:", error.message);

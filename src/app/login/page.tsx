@@ -4,6 +4,7 @@ import { ShieldCheck, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { TERAPEUTAS } from "@/data/terapeutas";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -36,25 +37,20 @@ export default function LoginPage() {
                 return;
             }
 
-            // Therapist Bypass (Using names for initial access)
-            const therapists = [
-                { email: "ca.esteban53@gmail.com", name: "Esteban Cancino", id: "1" },
-                { email: "paolaelianaad@gmail.com", name: "Paola Arriagada", id: "2" },
-                { email: "manuel.erlandsen.muscio@gmail.com", name: "Manuel Erlandsen", id: "3" },
-                { email: "oarancibial@gmail.com", name: "Oliver Arancibia", id: "4" },
-                { email: "francisca.pino.a@gmail.com", name: "Francisca Pino", id: "5" },
-                { email: "juanrojaspardo@gmail.com", name: "Juan Rojas", id: "6" },
-                { email: "marlenecalvete3@gmail.com", name: "Marlene Calvete", id: "7" },
-                { email: "vcuadra9@gmail.com", name: "Verónica Cuadra", id: "8" }
-            ];
+            // Therapist Bypass (Using central data for initial access)
+            const foundTherapist = TERAPEUTAS.find(t => t.email === email);
+            if (foundTherapist) {
+                // Password pattern: FirstName + 2026! (e.g., Esteban2026!)
+                const firstName = foundTherapist.name.replace("Ps. ", "").split(" ")[0];
+                const expectedPassword = `${firstName}2026!`;
 
-            const foundTherapist = therapists.find(t => t.email === email);
-            if (foundTherapist && password === (foundTherapist.name.split(" ")[0] + "2026!")) {
-                localStorage.setItem("user_role", "terapeuta");
-                localStorage.setItem("user_name", foundTherapist.name);
-                localStorage.setItem("therapist_id", foundTherapist.id);
-                router.push("/dashboard/terapeuta");
-                return;
+                if (password === expectedPassword) {
+                    localStorage.setItem("user_role", "terapeuta");
+                    localStorage.setItem("user_name", foundTherapist.name);
+                    localStorage.setItem("therapist_id", foundTherapist.id.toString());
+                    router.push("/dashboard/terapeuta");
+                    return;
+                }
             }
 
             setError("Credenciales inválidas. Por favor verifica tu correo y contraseña.");
