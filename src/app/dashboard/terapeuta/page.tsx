@@ -200,6 +200,35 @@ export default function TherapistDashboard() {
         setSaving(false);
     };
 
+    // Funciones de Agenda
+    const cancelAppointment = async (leadId: string) => {
+        if (!confirm("¿Estás seguro de que deseas cancelar esta cita? El horario volverá a estar disponible.")) return;
+        const { error } = await supabase.from('pacientes').update({ status: 'Cancelado' }).eq('id', leadId);
+        if (!error) fetchLeads();
+    };
+
+    const updatePatientDetails = async (leadId: string, updates: any) => {
+        setUpdatingLeadId(leadId);
+        const { error } = await supabase.from('pacientes').update(updates).eq('id', leadId);
+        if (!error) {
+            setLeads(leads.map(l => l.id === leadId ? { ...l, ...updates } : l));
+        }
+        setUpdatingLeadId(null);
+    };
+
+    const toggleBlockDate = async (date: string) => {
+        const tId = localStorage.getItem('therapist_id');
+        if (!tId) return;
+
+        if (bloqueos.includes(date)) {
+            const { error } = await supabase.from('bloqueos').delete().eq('therapist_id', tId).eq('blocked_date', date);
+            if (!error) setBloqueos(bloqueos.filter(d => d !== date));
+        } else {
+            const { error } = await supabase.from('bloqueos').insert([{ therapist_id: tId, blocked_date: date }]);
+            if (!error) setBloqueos([...bloqueos, date]);
+        }
+    };
+
     const handlePanicButton = async () => {
         if (!confirm("¿Estás seguro que deseas activar el Botón de Pánico Académico? Esto enviará una alerta inmediata a los supervisores clínicos (cfernandez.bolton@gmail.com, juanrojaspardo@gmail.com).")) {
             return;
