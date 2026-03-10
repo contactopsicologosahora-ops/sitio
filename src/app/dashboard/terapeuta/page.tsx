@@ -621,6 +621,7 @@ export default function TherapistDashboard() {
                                     </button>
                                 </div>
                             </div>
+                        )}
                     </div>
                 )}
 
