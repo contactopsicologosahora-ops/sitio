@@ -44,12 +44,23 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     const { data } = await supabase
       .from('pacientes')
       .select('appointment_date, appointment_time')
-      .eq('therapist_id', therapist.id);
+      .eq('therapist_id', therapist.id)
+      .neq('status', 'Cancelado');
     setBookedSlots(data || []);
+  };
+
+  const [bloqueos, setBloqueos] = useState<string[]>([]);
+  const fetchBloqueos = async () => {
+    const { data } = await supabase
+      .from('bloqueos')
+      .select('blocked_date')
+      .eq('therapist_id', therapist.id);
+    if (data) setBloqueos(data.map((b: any) => b.blocked_date));
   };
 
   const fetchAvailability = async () => {
     setLoadingAvail(true);
+    fetchBloqueos();
     const { data, error } = await supabase
       .from('disponibilidad')
       .select('*')
@@ -244,27 +255,32 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
                     for (let i = 0; i < 14; i++) {
                       const d = new Date();
                       d.setDate(d.getDate() + i);
+                      const dateStr = d.toISOString().split('T')[0];
                       const label = dayLabelsMap[d.getDay()];
+                      const isBlocked = bloqueos.includes(dateStr);
                       if (availability[label]) {
-                        days.push({ date: d.toISOString().split('T')[0], label, d });
+                        days.push({ date: dateStr, label, d, isBlocked });
                       }
                     }
                     return days.map(dayObj => (
                       <button
                         key={dayObj.date}
+                        disabled={dayObj.isBlocked}
                         onClick={() => setSelectedDayLabel(dayObj.date)}
                         style={{
                           padding: '0.8rem 1.2rem',
                           borderRadius: '12px',
                           border: selectedDayLabel === dayObj.date ? '2px solid var(--accent)' : '1px solid #eee',
                           minWidth: '100px',
-                          backgroundColor: selectedDayLabel === dayObj.date ? 'var(--accent-light)' : 'var(--white)',
-                          cursor: 'pointer',
-                          textAlign: 'center'
+                          backgroundColor: dayObj.isBlocked ? '#f5f5f5' : (selectedDayLabel === dayObj.date ? 'var(--accent-light)' : 'var(--white)'),
+                          cursor: dayObj.isBlocked ? 'not-allowed' : 'pointer',
+                          textAlign: 'center',
+                          opacity: dayObj.isBlocked ? 0.5 : 1
                         }}
                       >
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase' }}>{dayObj.label}</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--primary)' }}>{dayObj.d.getDate()}</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: dayObj.isBlocked ? '#999' : 'var(--primary)' }}>{dayObj.d.getDate()}</div>
+                        {dayObj.isBlocked && <div style={{ fontSize: '0.6rem', color: '#d32f2f' }}>Bloqueado</div>}
                       </button>
                     ));
                   })()}

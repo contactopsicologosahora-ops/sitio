@@ -15,6 +15,8 @@ export default function TherapistDashboard() {
     const [agendaView, setAgendaView] = useState("calendario"); // "calendario" o "ajustes"
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(new Date().toISOString().split('T')[0]);
+    const [bloqueos, setBloqueos] = useState<string[]>([]);
+    const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
     const [userName, setUserName] = useState("");
     const [terapeutaData, setTerapeutaData] = useState<any>(null);
     const [perfilError, setPerfilError] = useState(false);
@@ -28,8 +30,16 @@ export default function TherapistDashboard() {
             setAuthorized(true);
             setUserName(name || "Especialista");
             fetchTerapeutaData();
+            fetchBloqueos();
         }
     }, []);
+
+    const fetchBloqueos = async () => {
+        const tId = localStorage.getItem('therapist_id');
+        if (!tId) return;
+        const { data } = await supabase.from('bloqueos').select('blocked_date').eq('therapist_id', tId);
+        if (data) setBloqueos(data.map(b => b.blocked_date));
+    };
 
     const fetchTerapeutaData = async () => {
         const tId = localStorage.getItem('therapist_id');
@@ -520,24 +530,29 @@ export default function TherapistDashboard() {
 
                                             for (let d = 1; d <= lastDay.getDate(); d++) {
                                                 const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                                                const dayBookings = leads.filter(l => l.appointment_date === dateStr);
+                                                const dayBookings = leads.filter(l => l.appointment_date === dateStr && l.status !== 'Cancelado');
                                                 const isSelected = selectedDate === dateStr;
                                                 const isToday = new Date().toISOString().split('T')[0] === dateStr;
+                                                const isBlocked = bloqueos.includes(dateStr);
 
                                                 days.push(
                                                     <div
                                                         key={d}
                                                         onClick={() => setSelectedDate(dateStr)}
                                                         style={{
-                                                            backgroundColor: isSelected ? 'var(--accent-light)' : '#fff',
+                                                            backgroundColor: isBlocked ? '#ffebee' : (isSelected ? 'var(--accent-light)' : '#fff'),
                                                             height: '100px',
                                                             padding: '0.5rem',
                                                             cursor: 'pointer',
                                                             position: 'relative',
-                                                            border: isToday ? '2px solid var(--accent)' : 'none'
+                                                            border: isToday ? '2px solid var(--accent)' : 'none',
+                                                            opacity: isBlocked ? 0.8 : 1
                                                         }}
                                                     >
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal' }}>{d}</span>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                            <span style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal', color: isBlocked ? '#d32f2f' : 'inherit' }}>{d}</span>
+                                                            {isBlocked && <ShieldAlert size={12} color="#d32f2f" />}
+                                                        </div>
                                                         {dayBookings.length > 0 && (
                                                             <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                 {dayBookings.slice(0, 2).map((b, idx) => (
@@ -558,27 +573,104 @@ export default function TherapistDashboard() {
 
                                 {/* Appointment List for selected day */}
                                 <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
-                                    <h3 style={{ marginBottom: '1.5rem' }}>Detalle: {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : "Selecciona un día"}</h3>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                                        <h3 style={{ margin: 0 }}>Detalle: {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : "Selecciona un día"}</h3>
+                                        {selectedDate && (
+                                            <button
+                                                onClick={() => toggleBlockDate(selectedDate)}
+                                                style={{
+                                                    padding: '0.4rem 0.8rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #ffcdd2',
+                                                    fontSize: '0.75rem',
+                                                    cursor: 'pointer',
+                                                    backgroundColor: bloqueos.includes(selectedDate) ? '#d32f2f' : '#fff',
+                                                    color: bloqueos.includes(selectedDate) ? '#fff' : '#d32f2f'
+                                                }}
+                                            >
+                                                {bloqueos.includes(selectedDate) ? "Desbloquear Día" : "Bloquear Día"}
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                         {selectedDate && leads.filter(l => l.appointment_date === selectedDate).length > 0 ? (
                                             leads.filter(l => l.appointment_date === selectedDate)
                                                 .sort((a, b) => (a.appointment_time || "").localeCompare(b.appointment_time || ""))
                                                 .map(lead => (
-                                                    <div key={lead.id} style={{ padding: '1.2rem', backgroundColor: '#f8f9fa', borderRadius: '12px', borderLeft: '4px solid var(--accent)' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                                            <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{lead.appointment_time}</span>
-                                                            <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: '50px', backgroundColor: '#e8f5e9', color: '#2e7d32' }}>Reservado</span>
+                                                    <div key={lead.id} style={{ padding: '1.5rem', backgroundColor: '#f8f9fa', borderRadius: '16px', borderLeft: lead.status === 'Cancelado' ? '4px solid #ddd' : '4px solid var(--accent)', opacity: lead.status === 'Cancelado' ? 0.6 : 1 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                                            <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>{lead.appointment_time}</span>
+                                                            <span style={{
+                                                                fontSize: '0.75rem',
+                                                                padding: '0.3rem 0.8rem',
+                                                                borderRadius: '50px',
+                                                                backgroundColor: lead.status === 'Cancelado' ? '#f5f5f5' : '#e8f5e9',
+                                                                color: lead.status === 'Cancelado' ? '#999' : '#2e7d32'
+                                                            }}>
+                                                                {lead.status === 'Cancelado' ? 'Cancelado' : 'Reservado'}
+                                                            </span>
                                                         </div>
-                                                        <h4 style={{ margin: '0 0 0.2rem' }}>{lead.name}</h4>
-                                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-soft)' }}>📞 {lead.phone}</p>
-                                                        {lead.email && <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-soft)' }}>✉️ {lead.email}</p>}
+
+                                                        <h4 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem' }}>{lead.name}</h4>
+                                                        <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                                            <span>📞 {lead.phone}</span>
+                                                            <button
+                                                                onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\s+/g, '')}`, '_blank')}
+                                                                style={{ border: 'none', background: 'none', color: '#25D366', cursor: 'pointer', padding: 0, fontWeight: '600' }}
+                                                            >
+                                                                WhatsApp
+                                                            </button>
+                                                        </div>
+
+                                                        {lead.status !== 'Cancelado' && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-soft)', display: 'block', marginBottom: '0.4rem' }}>LINK DE SESIÓN (Zoom/Meet)</label>
+                                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                                        <input
+                                                                            type="text"
+                                                                            defaultValue={lead.session_link || ""}
+                                                                            placeholder="https://zoom.us/j/..."
+                                                                            onBlur={(e) => updatePatientDetails(lead.id, { session_link: e.target.value })}
+                                                                            style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem' }}
+                                                                        />
+                                                                        {lead.session_link && (
+                                                                            <button
+                                                                                onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\s+/g, '')}?text=Hola%20${lead.name},%20aquí%20tienes%20el%20link%20para%20nuestra%20sesión:%20${encodeURIComponent(lead.session_link)}`, '_blank')}
+                                                                                style={{ padding: '0.5rem', borderRadius: '8px', border: 'none', backgroundColor: '#25D366', color: '#fff', cursor: 'pointer' }}
+                                                                                title="Enviar link por WhatsApp"
+                                                                            >
+                                                                                <MessageSquare size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-soft)', display: 'block', marginBottom: '0.4rem' }}>NOTAS PRIVADAS</label>
+                                                                    <textarea
+                                                                        defaultValue={lead.notes || ""}
+                                                                        placeholder="Motivo de consulta, puntos claves..."
+                                                                        onBlur={(e) => updatePatientDetails(lead.id, { notes: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem', minHeight: '80px', fontFamily: 'inherit' }}
+                                                                    />
+                                                                </div>
+
+                                                                <button
+                                                                    onClick={() => cancelAppointment(lead.id)}
+                                                                    style={{ alignSelf: 'flex-start', color: '#d32f2f', border: 'none', background: 'none', padding: 0.5, fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                >
+                                                                    Cancelar Cita definitivamente
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))
                                         ) : (
                                             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-soft)' }}>
                                                 <Calendar size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-                                                <p>No hay citas agendadas para este día.</p>
+                                                <p>{bloqueos.includes(selectedDate || "") ? "Este día está BLOQUEADO." : "No hay citas agendadas."}</p>
                                             </div>
                                         )}
                                     </div>
