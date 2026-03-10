@@ -17,7 +17,9 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     urgency: "",
     timeRange: "",
     name: "",
-    phone: ""
+    phone: "",
+    appointmentDate: "",
+    appointmentTime: ""
   });
   const [isLocked, setIsLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,7 +36,17 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
       }
     }
     fetchAvailability();
+    fetchBookedSlots();
   }, []);
+
+  const [bookedSlots, setBookedSlots] = useState<any[]>([]);
+  const fetchBookedSlots = async () => {
+    const { data } = await supabase
+      .from('pacientes')
+      .select('appointment_date, appointment_time')
+      .eq('therapist_id', therapist.id);
+    setBookedSlots(data || []);
+  };
 
   const fetchAvailability = async () => {
     setLoadingAvail(true);
@@ -86,8 +98,10 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
             phone: formData.phone,
             urgent: formData.urgency,
             time_range: formData.timeRange,
-            therapist_id: therapist.id, // Unified column name
-            status: 'Pendiente'
+            therapist_id: therapist.id,
+            status: 'Pendiente',
+            appointment_date: formData.appointmentDate || null,
+            appointment_time: formData.appointmentTime || null
           }
         ]);
 
@@ -212,7 +226,7 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
         {step === 2 && formData.urgency === "Calendario Directo" && (
           <div className="animate-fade">
             <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '1rem' }}>Selecciona tu hora</h2>
-            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Selecciona la disponibilidad real de {therapist.name}.</p>
+            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Horarios disponibles para {therapist.name}.</p>
 
             {loadingAvail ? (
               <p>Cargando disponibilidad...</p>
@@ -223,37 +237,75 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem' }}>
-                  {Object.keys(availability).map(day => (
-                    <button
-                      key={day}
-                      onClick={() => setSelectedDayLabel(day)}
-                      style={{
-                        padding: '1rem',
-                        borderRadius: 'var(--radius-sm)',
-                        border: selectedDayLabel === day ? '2px solid var(--accent)' : '1px solid #ddd',
-                        minWidth: '80px',
-                        backgroundColor: selectedDayLabel === day ? 'var(--accent-light)' : 'var(--white)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Día</div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{day}</div>
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                  {(() => {
+                    const days = [];
+                    const dayLabelsMap: any = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mie', 4: 'Jue', 5: 'Vie', 6: 'Sab' };
+                    for (let i = 0; i < 14; i++) {
+                      const d = new Date();
+                      d.setDate(d.getDate() + i);
+                      const label = dayLabelsMap[d.getDay()];
+                      if (availability[label]) {
+                        days.push({ date: d.toISOString().split('T')[0], label, d });
+                      }
+                    }
+                    return days.map(dayObj => (
+                      <button
+                        key={dayObj.date}
+                        onClick={() => setSelectedDayLabel(dayObj.date)}
+                        style={{
+                          padding: '0.8rem 1.2rem',
+                          borderRadius: '12px',
+                          border: selectedDayLabel === dayObj.date ? '2px solid var(--accent)' : '1px solid #eee',
+                          minWidth: '100px',
+                          backgroundColor: selectedDayLabel === dayObj.date ? 'var(--accent-light)' : 'var(--white)',
+                          cursor: 'pointer',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase' }}>{dayObj.label}</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--primary)' }}>{dayObj.d.getDate()}</div>
+                      </button>
+                    ));
+                  })()}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                  {availability[selectedDayLabel]?.map((hora: string) => (
-                    <button
-                      key={hora}
-                      onClick={() => { setFormData({ ...formData, timeRange: `${selectedDayLabel} a las ${hora}` }); handleNext(); }}
-                      className="secondary-btn"
-                      style={{ padding: '1rem' }}
-                    >
-                      {hora}
-                    </button>
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '2rem', maxHeight: '250px', overflowY: 'auto', padding: '0.5rem' }}>
+                  {(() => {
+                    const dayObj = new Date(selectedDayLabel || Date.now());
+                    const label = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mie', 4: 'Jue', 5: 'Vie', 6: 'Sab' }[dayObj.getDay()] as string;
+                    const hours = availability[label] || [];
+
+                    return hours.map((hora: string) => {
+                      const isBooked = bookedSlots.some(bs => bs.appointment_date === selectedDayLabel && bs.appointment_time === hora);
+                      return (
+                        <button
+                          key={hora}
+                          disabled={isBooked}
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              timeRange: `${selectedDayLabel} a las ${hora}`,
+                              appointmentDate: selectedDayLabel,
+                              appointmentTime: hora
+                            });
+                            handleNext();
+                          }}
+                          className="secondary-btn"
+                          style={{
+                            padding: '1rem',
+                            fontSize: '0.9rem',
+                            opacity: isBooked ? 0.4 : 1,
+                            textDecoration: isBooked ? 'line-through' : 'none',
+                            backgroundColor: isBooked ? '#f5f5f5' : '#fff',
+                            cursor: isBooked ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {hora} {isBooked && "(Ocupado)"}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </>
             )}

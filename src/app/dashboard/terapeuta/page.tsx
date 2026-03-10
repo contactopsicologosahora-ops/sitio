@@ -12,6 +12,9 @@ export default function TherapistDashboard() {
     const [loading, setLoading] = useState(true);
     const [availability, setAvailability] = useState<any>({});
     const [saving, setSaving] = useState(false);
+    const [agendaView, setAgendaView] = useState("calendario"); // "calendario" o "ajustes"
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<string | null>(new Date().toISOString().split('T')[0]);
     const [userName, setUserName] = useState("");
     const [terapeutaData, setTerapeutaData] = useState<any>(null);
     const [perfilError, setPerfilError] = useState(false);
@@ -449,47 +452,175 @@ export default function TherapistDashboard() {
 
                 {activeTab === "agenda" && (
                     <div className="animate-fade">
-                        <header style={{ marginBottom: '3rem' }}>
-                            <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Mi Agenda</h1>
-                            <p style={{ color: 'var(--text-soft)' }}>Configura tus bloques de disponibilidad para el calendario público.</p>
-                        </header>
-
-                        <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem' }}>
-                                {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(day => (
-                                    <div key={day} style={{ textAlign: 'center' }}>
-                                        <p style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>{day}</p>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t => (
-                                                <button
-                                                    key={t}
-                                                    onClick={() => toggleHour(day, t)}
-                                                    style={{
-                                                        padding: '0.6rem',
-                                                        border: '1px solid #eee',
-                                                        borderRadius: '8px',
-                                                        fontSize: '0.8rem',
-                                                        cursor: 'pointer',
-                                                        backgroundColor: availability[day]?.includes(t) ? 'var(--accent)' : '#fff',
-                                                        color: availability[day]?.includes(t) ? '#fff' : 'inherit'
-                                                    }}>
-                                                    {t}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                        <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Mi Agenda</h1>
+                                <p style={{ color: 'var(--text-soft)' }}>Gestiona tus citas y configura tu disponibilidad horaria.</p>
                             </div>
-                            <div style={{ marginTop: '3rem', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '1rem', backgroundColor: '#eee', padding: '0.4rem', borderRadius: '12px' }}>
                                 <button
-                                    onClick={saveAvailability}
-                                    disabled={saving}
-                                    className="premium-btn"
+                                    onClick={() => setAgendaView("calendario")}
+                                    style={{
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '600',
+                                        backgroundColor: agendaView === "calendario" ? '#fff' : 'transparent',
+                                        boxShadow: agendaView === "calendario" ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+                                    }}
                                 >
-                                    {saving ? "Guardando..." : "Guardar disponibilidad"}
+                                    Calendario de Citas
+                                </button>
+                                <button
+                                    onClick={() => setAgendaView("ajustes")}
+                                    style={{
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '600',
+                                        backgroundColor: agendaView === "ajustes" ? '#fff' : 'transparent',
+                                        boxShadow: agendaView === "ajustes" ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+                                    }}
+                                >
+                                    Configurar Disponibilidad
                                 </button>
                             </div>
-                        </div>
+                        </header>
+
+                        {agendaView === "calendario" ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
+                                {/* Monthly Calendar */}
+                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                        <h3 style={{ margin: 0, textTransform: 'capitalize' }}>
+                                            {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                                        </h3>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="secondary-btn" style={{ padding: '0.5rem' }}><ArrowUpRight size={18} style={{ transform: 'rotate(-135deg)' }} /></button>
+                                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="secondary-btn" style={{ padding: '0.5rem' }}><ArrowUpRight size={18} style={{ transform: 'rotate(-45deg)' }} /></button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', backgroundColor: '#eee', border: '1px solid #eee' }}>
+                                        {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map(d => (
+                                            <div key={d} style={{ backgroundColor: '#f8f9fa', padding: '0.8rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-soft)' }}>{d}</div>
+                                        ))}
+                                        {(() => {
+                                            const days = [];
+                                            const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+                                            const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+                                            // Padding for start of month (Monday start)
+                                            let startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+                                            for (let i = 0; i < startPadding; i++) days.push(<div key={`pad-${i}`} style={{ backgroundColor: '#fff', height: '100px' }}></div>);
+
+                                            for (let d = 1; d <= lastDay.getDate(); d++) {
+                                                const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                                                const dayBookings = leads.filter(l => l.appointment_date === dateStr);
+                                                const isSelected = selectedDate === dateStr;
+                                                const isToday = new Date().toISOString().split('T')[0] === dateStr;
+
+                                                days.push(
+                                                    <div
+                                                        key={d}
+                                                        onClick={() => setSelectedDate(dateStr)}
+                                                        style={{
+                                                            backgroundColor: isSelected ? 'var(--accent-light)' : '#fff',
+                                                            height: '100px',
+                                                            padding: '0.5rem',
+                                                            cursor: 'pointer',
+                                                            position: 'relative',
+                                                            border: isToday ? '2px solid var(--accent)' : 'none'
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal' }}>{d}</span>
+                                                        {dayBookings.length > 0 && (
+                                                            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                {dayBookings.slice(0, 2).map((b, idx) => (
+                                                                    <div key={idx} style={{ backgroundColor: 'var(--primary)', color: '#fff', fontSize: '0.65rem', padding: '2px 4px', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {b.appointment_time} {b.name}
+                                                                    </div>
+                                                                ))}
+                                                                {dayBookings.length > 2 && <div style={{ fontSize: '0.6rem', color: 'var(--text-soft)', textAlign: 'center' }}>+ {dayBookings.length - 2} más</div>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            return days;
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* Appointment List for selected day */}
+                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
+                                    <h3 style={{ marginBottom: '1.5rem' }}>Detalle: {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : "Selecciona un día"}</h3>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {selectedDate && leads.filter(l => l.appointment_date === selectedDate).length > 0 ? (
+                                            leads.filter(l => l.appointment_date === selectedDate)
+                                                .sort((a, b) => (a.appointment_time || "").localeCompare(b.appointment_time || ""))
+                                                .map(lead => (
+                                                    <div key={lead.id} style={{ padding: '1.2rem', backgroundColor: '#f8f9fa', borderRadius: '12px', borderLeft: '4px solid var(--accent)' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{lead.appointment_time}</span>
+                                                            <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: '50px', backgroundColor: '#e8f5e9', color: '#2e7d32' }}>Reservado</span>
+                                                        </div>
+                                                        <h4 style={{ margin: '0 0 0.2rem' }}>{lead.name}</h4>
+                                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-soft)' }}>📞 {lead.phone}</p>
+                                                        {lead.email && <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-soft)' }}>✉️ {lead.email}</p>}
+                                                    </div>
+                                                ))
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-soft)' }}>
+                                                <Calendar size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                                <p>No hay citas agendadas para este día.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem' }}>
+                                    {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(day => (
+                                        <div key={day} style={{ textAlign: 'center' }}>
+                                            <p style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>{day}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t => (
+                                                    <button
+                                                        key={t}
+                                                        onClick={() => toggleHour(day, t)}
+                                                        style={{
+                                                            padding: '0.6rem',
+                                                            border: '1px solid #eee',
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.8rem',
+                                                            cursor: 'pointer',
+                                                            backgroundColor: availability[day]?.includes(t) ? 'var(--accent)' : '#fff',
+                                                            color: availability[day]?.includes(t) ? '#fff' : 'inherit'
+                                                        }}>
+                                                        {t}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{ marginTop: '3rem', textAlign: 'right' }}>
+                                    <button
+                                        onClick={saveAvailability}
+                                        disabled={saving}
+                                        className="premium-btn"
+                                    >
+                                        {saving ? "Guardando..." : "Guardar disponibilidad"}
+                                    </button>
+                                </div>
+                            </div>
                     </div>
                 )}
 
