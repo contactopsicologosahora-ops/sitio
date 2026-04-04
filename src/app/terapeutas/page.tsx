@@ -19,8 +19,14 @@ export default function Terapeutas() {
                 .order('rating', { ascending: false }); // Sort by rating as default
 
             if (!error && data) {
+                // Apply price overrides 
+                const overriddenData = data.map((t: any) => ({
+                    ...t,
+                    price: t.name.includes("Juan Rojas") ? "$55.000" : "$40.000"
+                }));
+
                 // Point 3: Load Balancing - Sort therapists to show high availability first
-                const sorted = [...data].sort((a, b) => {
+                const sorted = [...overriddenData].sort((a, b) => {
                     const order: any = { "Alta": 1, "Media": 2, "Baja": 3 };
                     return order[a.availability] - order[b.availability];
                 });
