@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Cliente admin (service_role) para saltar las RLS en el webhook
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const SECRET_TOKEN = process.env.ENCUADRADO_WEBHOOK_SECRET || "psicologos_ahora_encuadrado_secret_123";
 
 export async function POST(req: Request) {
+  // Cliente admin (service_role) para saltar las RLS en el webhook
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+
   // ── 1. Verificación de Seguridad ──
   const authHeader = req.headers.get('authorization');
   if (!authHeader || authHeader !== `Bearer ${SECRET_TOKEN}`) {
