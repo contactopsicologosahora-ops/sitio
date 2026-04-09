@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleAdsApi, enums } from 'google-ads-api';
 
+export const dynamic = "force-dynamic";
+
 // Inicializar cliente con credenciales desde el entorno
 const client = new GoogleAdsApi({
     client_id: process.env.GOOGLE_ADS_CLIENT_ID!,

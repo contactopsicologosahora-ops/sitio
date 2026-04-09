@@ -1,9 +1,17 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Home } from "lucide-react";
-import Link from "next/link";
+import Link from "next/link";import { Suspense } from "react";
 
 export default function GraciasDatos() {
+    return (
+        <Suspense fallback={<div style={{ textAlign: 'center', padding: '5rem' }}>Procesando...</div>}>
+            <GraciasDatosContent />
+        </Suspense>
+    );
+}
+
+function GraciasDatosContent() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
 
