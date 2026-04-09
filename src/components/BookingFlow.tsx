@@ -1,31 +1,38 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, ArrowRight, ArrowLeft, CheckCircle2, Clock, Phone, User as UserIcon, Calendar } from "lucide-react";
+import { X, ArrowRight, ArrowLeft, Clock, Phone, User as UserIcon, CalendarDays, ClipboardList, Mail, Calendar as CalendarIcon, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+import { supabase } from "@/lib/supabase";
 
 interface BookingFlowProps {
   therapist: any;
   onClose: () => void;
 }
 
-import { supabase } from "@/lib/supabase";
-
 export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
   const router = useRouter();
+  
+  const [flowMode, setFlowMode] = useState<'leaveData' | 'directBooking' | null>(null);
   const [step, setStep] = useState(1);
+  const [isLocked, setIsLocked] = useState(false);
+  
+  // Datos comunes
   const [formData, setFormData] = useState({
     urgency: "",
     timeRange: "",
     name: "",
     phone: "",
-    appointmentDate: "",
-    appointmentTime: ""
+    email: "",
+    // Específico para agenda directa
+    selectedDay: "",
+    selectedHour: ""
   });
-  const [isLocked, setIsLocked] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [availability, setAvailability] = useState<any>({});
-  const [loadingAvail, setLoadingAvail] = useState(false);
-  const [selectedDayLabel, setSelectedDayLabel] = useState("");
+
+  // Disponibilidad de calendario
+  const [availability, setAvailability] = useState<Record<string, string[]>>({});
+  const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+  const [activeDayTab, setActiveDayTab] = useState<string>('');
 
   useEffect(() => {
     const lastBooking = localStorage.getItem("last_booking_time");
@@ -35,53 +42,37 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
         setIsLocked(true);
       }
     }
+    
+    // Fetch availabilities
+    const fetchAvailability = async () => {
+      try {
+        const response = await fetch(`/api/availability?therapistId=${therapist?.id || 1}`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailability(data);
+          
+          // Set primary tab to the first day with availability
+          const firstAvailDay = days.find(d => data[d] && data[d].length > 0);
+          if (firstAvailDay) setActiveDayTab(firstAvailDay);
+          else setActiveDayTab('Lun');
+        } else {
+          // Fallback if API doesn't exist yet
+          const fallbackData = { 'Lun': ['09:00', '11:00', '15:00'], 'Mie': ['10:00', '16:00'], 'Vie': ['09:00', '12:00'] };
+          setAvailability(fallbackData);
+          setActiveDayTab('Lun');
+        }
+      } catch (error) {
+        console.error("Error fetching availability:", error);
+        const fallbackData = { 'Lun': ['09:00', '11:00', '15:00'], 'Mie': ['10:00', '16:00'], 'Vie': ['09:00', '12:00'] };
+        setAvailability(fallbackData);
+        setActiveDayTab('Lun');
+      }
+    };
+    
     fetchAvailability();
-    fetchBookedSlots();
-  }, []);
+  }, [therapist?.id]);
 
-  const [bookedSlots, setBookedSlots] = useState<any[]>([]);
-  const fetchBookedSlots = async () => {
-    const { data } = await supabase
-      .from('pacientes')
-      .select('appointment_date, appointment_time')
-      .eq('therapist_id', therapist.id)
-      .neq('status', 'Cancelado');
-    setBookedSlots(data || []);
-  };
-
-  const [bloqueos, setBloqueos] = useState<string[]>([]);
-  const fetchBloqueos = async () => {
-    const { data } = await supabase
-      .from('bloqueos')
-      .select('blocked_date')
-      .eq('therapist_id', therapist.id);
-    if (data) setBloqueos(data.map((b: any) => b.blocked_date));
-  };
-
-  const fetchAvailability = async () => {
-    setLoadingAvail(true);
-    fetchBloqueos();
-    const { data, error } = await supabase
-      .from('disponibilidad')
-      .select('*')
-      .eq('therapist_id', therapist?.id);
-
-    if (!error && data) {
-      const availMap: any = {};
-      data.forEach((item: any) => {
-        if (!availMap[item.day]) availMap[item.day] = [];
-        availMap[item.day].push(item.hour);
-      });
-      setAvailability(availMap);
-
-      // Auto-select first available day if any
-      const days = Object.keys(availMap);
-      if (days.length > 0) setSelectedDayLabel(days[0]);
-    }
-    setLoadingAvail(false);
-  };
-
-  const totalSteps = 4;
+  const totalSteps = flowMode === 'leaveData' ? 4 : (flowMode === 'directBooking' ? 2 : 1);
 
   const handleNext = () => {
     if (step < totalSteps) setStep(step + 1);
@@ -89,80 +80,64 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
   };
 
   const handlePrev = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      setStep(step - 1);
+    } else {
+      setFlowMode(null);
+      setStep(1);
+    }
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    localStorage.setItem("last_booking_time", Date.now().toString());
+    console.log(`Saving ${flowMode} lead for therapist:`, therapist.name, formData);
 
+    const themeStr = flowMode === 'directBooking'
+      ? `Agendamiento Directo: ${formData.selectedDay} a las ${formData.selectedHour}`
+      : `Datos Previos | Urgencia: ${formData.urgency} | Horario: ${formData.timeRange}`;
+
+    const leadToInsert = {
+      terapeuta_id: therapist.id,
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email || null,
+      status: 'Pendiente',
+      theme: themeStr
+    };
+
+    // Guardar en CRM de Supabase (Backend) saltando la protección pública y enviar correos:
     try {
-      // Record booking time for lockout
-      localStorage.setItem("last_booking_time", Date.now().toString());
-
-      // Save to Supabase
-      const { error } = await supabase
-        .from('pacientes')
-        .insert([
-          {
-            name: formData.name,
-            phone: formData.phone,
-            urgent: formData.urgency,
-            time_range: formData.timeRange,
-            therapist_id: therapist.id,
-            status: 'Pendiente',
-            appointment_date: formData.appointmentDate || null,
-            appointment_time: formData.appointmentTime || null
+      const response = await fetch('/api/send-booking-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          flowMode,
+          formData,
+          therapist: {
+            id: therapist.id,
+            name: therapist.name,
+            email: therapist.email
           }
-        ]);
+        })
+      });
 
-      if (error) {
-        console.error("Supabase Save Error (Falling back to LocalStorage):", error.message);
-        // Backup to localStorage if DB fails
-        try {
-          const rawLeads = localStorage.getItem("leads_backup");
-          const existingLeads = Array.isArray(JSON.parse(rawLeads || "[]")) ? JSON.parse(rawLeads || "[]") : [];
-          localStorage.setItem("leads_backup", JSON.stringify([...existingLeads, { ...formData, therapist_id: therapist?.id, date: new Date().toISOString(), status: 'Pendiente' }]));
-        } catch (storageErr) {
-          console.error("Local backup also failed:", storageErr);
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`API respondió con Error ${response.status}: ${JSON.stringify(errorData.error || errorData)}`);
       }
 
-      // Trigger Email Notification (Non-blocking)
-      console.log("Firing email notification...");
-      const fireEmail = async () => {
-        try {
-          const res = await fetch('/api/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              patientData: formData,
-              therapistEmail: therapist?.email || 'contactopsicologosahora@gmail.com',
-              therapistName: therapist?.name || 'Especialista'
-            }),
-          });
-          console.log("Email result:", res.status);
-        } catch (e) {
-          console.error("Fallo de red al intentar enviar correo:", e);
-        }
-      };
-
-      fireEmail();
-
-      // Redirect to thank you page
-      console.log("Booking success - Redirecting to thanks page...");
-      if (typeof window !== 'undefined') {
-        const targetUrl = `/gracias?therapistId=${therapist?.id || ''}`;
-        router.push(targetUrl);
-      }
     } catch (err: any) {
-      console.error("CRITICAL ERROR IN SUBMIT:", err);
-      // Fallback redirection to avoid "Application Error"
-      if (typeof window !== 'undefined') {
-        window.location.href = `/gracias?therapistId=${therapist?.id || 'error'}`;
-      }
-    } finally {
-      setIsSubmitting(false);
+      console.error("Fallo Quirúrgico (Exception invoking backend API):", err.message);
+    }
+    
+    // Continuamos a la pantalla de éxito incluso si los correos fallan (para no bloquear al usuario),
+    // pero el error queda registrado en consola para el desarrollador.
+    if (flowMode === 'directBooking') {
+      router.push(`/gracias-agendamiento?therapistId=${therapist.id}`);
+    } else {
+      router.push(`/gracias-datos?therapistId=${therapist.id}`);
     }
   };
 
@@ -177,167 +152,67 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     );
   }
 
-  return (
-    <div className="animate-fade" style={{
-      backgroundColor: 'var(--white)',
-      boxShadow: 'var(--shadow-lg)',
-      border: '1px solid rgba(0,0,0,0.05)',
-      maxWidth: '600px',
-      width: '95%',
-      padding: '4rem',
-      borderRadius: 'var(--radius-lg)',
-      position: 'relative',
-      minHeight: '500px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center'
-    }}>
-      <button onClick={onClose} style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-soft)' }}>
-        <X size={24} />
-      </button>
+  // --- RENDERS POR FLUJO --- //
 
-      {/* Progress Bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0' }}>
-        <div style={{
-          width: `${(step / totalSteps) * 100}%`,
-          height: '100%',
-          backgroundColor: 'var(--accent)',
-          transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}></div>
+  const renderInitialScreen = () => (
+    <div style={{ textAlign: 'center' }}>
+      <h2 style={{ fontSize: '2rem', marginBottom: '2.5rem', color: 'var(--primary)' }}>¿Cómo prefieres agendar?</h2>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <button 
+          onClick={() => { setFlowMode('leaveData'); setStep(1); }}
+          className="secondary-btn"
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '1.5rem', 
+            padding: '1.5rem', textAlign: 'left', borderRadius: '12px',
+            background: '#fafafa', border: '1px solid #eaeaea', transition: 'all 0.3s ease'
+          }}
+        >
+          <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '1rem', borderRadius: '50%' }}>
+            <ClipboardList size={32} color="var(--accent)" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.3rem', color: 'var(--primary)' }}>Deseo dejar mis datos</h3>
+            <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', margin: 0 }}>Y que me contacten antes de agendar</p>
+          </div>
+          <ArrowRight size={20} color="var(--accent)" style={{ marginLeft: 'auto' }} />
+        </button>
+
+        <button 
+          onClick={() => { setFlowMode('directBooking'); setStep(1); }}
+          className="secondary-btn"
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '1.5rem', 
+            padding: '1.5rem', textAlign: 'left', borderRadius: '12px',
+            background: '#fafafa', border: '1px solid #eaeaea', transition: 'all 0.3s ease'
+          }}
+        >
+          <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '1rem', borderRadius: '50%' }}>
+            <CalendarDays size={32} color="var(--accent)" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.3rem', color: 'var(--primary)' }}>Quiero agendar directamente</h3>
+            <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', margin: 0 }}>En el calendario del terapeuta</p>
+          </div>
+          <ArrowRight size={20} color="var(--accent)" style={{ marginLeft: 'auto' }} />
+        </button>
       </div>
+    </div>
+  );
 
-      <div style={{ marginBottom: '2rem' }}>
-        <span style={{ color: 'var(--accent)', fontWeight: '700', fontSize: '0.8rem', letterSpacing: '0.1em' }}>PASO {step} DE {totalSteps}</span>
-      </div>
-
-      <div className="animate-fade" key={step}>
+  const renderLeaveDataFlow = () => {
+    return (
+      <div className="animate-fade" key={`leaveData-${step}`}>
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>1. ¿Cómo deseas agendar con {(therapist?.name || "").split(" ")[1] || "tu especialista"}?</h2>
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>1. ¿Para cuándo necesitas la atención?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <button
-                onClick={() => { setFormData({ ...formData, urgency: "Calendario Directo" }); handleNext(); }}
-                className="premium-btn"
-                style={{ textAlign: 'left', padding: '1.2rem 1.5rem', justifyContent: 'center' }}
-              >
-                <Calendar size={20} /> Agendar directamente en el calendario
-              </button>
-              <div style={{ textAlign: 'center', color: 'var(--text-soft)', margin: '0.5rem 0', fontSize: '0.9rem' }}>o</div>
-              <button
-                onClick={() => { setFormData({ ...formData, urgency: "Contacto Asistido" }); handleNext(); }}
-                className="secondary-btn"
-                style={{ textAlign: 'center', padding: '1.2rem 1.5rem', justifyContent: 'center' }}
-              >
-                Dejar mis datos y solicitar contacto
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && formData.urgency === "Calendario Directo" && (
-          <div className="animate-fade">
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '1rem' }}>Selecciona tu hora</h2>
-            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Horarios disponibles para {therapist.name}.</p>
-
-            {loadingAvail ? (
-              <p>Cargando disponibilidad...</p>
-            ) : Object.keys(availability).length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#fff3cd', borderRadius: '12px' }}>
-                <p style={{ margin: 0 }}>El terapeuta aún no ha configurado sus horarios. Por favor usa la opción de <strong>"Solicitar contacto"</strong>.</p>
-                <button onClick={handlePrev} className="secondary-btn" style={{ marginTop: '1rem' }}>Volver</button>
-              </div>
-            ) : (
-              <>
-                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-                  {(() => {
-                    const days = [];
-                    const dayLabelsMap: any = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mie', 4: 'Jue', 5: 'Vie', 6: 'Sab' };
-                    for (let i = 0; i < 14; i++) {
-                      const d = new Date();
-                      d.setDate(d.getDate() + i);
-                      const dateStr = d.toISOString().split('T')[0];
-                      const label = dayLabelsMap[d.getDay()];
-                      const isBlocked = bloqueos.includes(dateStr);
-                      if (availability[label]) {
-                        days.push({ date: dateStr, label, d, isBlocked });
-                      }
-                    }
-                    return days.map(dayObj => (
-                      <button
-                        key={dayObj.date}
-                        disabled={dayObj.isBlocked}
-                        onClick={() => setSelectedDayLabel(dayObj.date)}
-                        style={{
-                          padding: '0.8rem 1.2rem',
-                          borderRadius: '12px',
-                          border: selectedDayLabel === dayObj.date ? '2px solid var(--accent)' : '1px solid #eee',
-                          minWidth: '100px',
-                          backgroundColor: dayObj.isBlocked ? '#f5f5f5' : (selectedDayLabel === dayObj.date ? 'var(--accent-light)' : 'var(--white)'),
-                          cursor: dayObj.isBlocked ? 'not-allowed' : 'pointer',
-                          textAlign: 'center',
-                          opacity: dayObj.isBlocked ? 0.5 : 1
-                        }}
-                      >
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase' }}>{dayObj.label}</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: dayObj.isBlocked ? '#999' : 'var(--primary)' }}>{dayObj.d.getDate()}</div>
-                        {dayObj.isBlocked && <div style={{ fontSize: '0.6rem', color: '#d32f2f' }}>Bloqueado</div>}
-                      </button>
-                    ));
-                  })()}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '2rem', maxHeight: '250px', overflowY: 'auto', padding: '0.5rem' }}>
-                  {(() => {
-                    const dayObj = new Date(selectedDayLabel || Date.now());
-                    const label = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mie', 4: 'Jue', 5: 'Vie', 6: 'Sab' }[dayObj.getDay()] as string;
-                    const hours = availability[label] || [];
-
-                    return hours.map((hora: string) => {
-                      const isBooked = bookedSlots.some(bs => bs.appointment_date === selectedDayLabel && bs.appointment_time === hora);
-                      return (
-                        <button
-                          key={hora}
-                          disabled={isBooked}
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              timeRange: `${selectedDayLabel} a las ${hora}`,
-                              appointmentDate: selectedDayLabel,
-                              appointmentTime: hora
-                            });
-                            handleNext();
-                          }}
-                          className="secondary-btn"
-                          style={{
-                            padding: '1rem',
-                            fontSize: '0.9rem',
-                            opacity: isBooked ? 0.4 : 1,
-                            textDecoration: isBooked ? 'line-through' : 'none',
-                            backgroundColor: isBooked ? '#f5f5f5' : '#fff',
-                            cursor: isBooked ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          {hora} {isBooked && "(Ocupado)"}
-                        </button>
-                      );
-                    });
-                  })()}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {step === 2 && formData.urgency === "Contacto Asistido" && (
-          <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>2. ¿Qué horario te acomodaría más?</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {["Mañana (09:00 - 13:00)", "Tarde (14:00 - 18:00)", "Vespertino (19:00 - 21:00)"].map(opt => (
-                <button
+              {["Lo antes posible (Urgente)", "Esta semana", "Próxima semana"].map(opt => (
+                <button 
                   key={opt}
-                  onClick={() => { setFormData({ ...formData, timeRange: opt }); handleNext(); }}
+                  onClick={() => { setFormData({...formData, urgency: opt}); handleNext(); }}
                   className="secondary-btn"
-                  style={{ textAlign: 'left', padding: '1.2rem 1.5rem', border: formData.timeRange === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
+                  style={{ textAlign: 'left', padding: '1.2rem 2rem', border: formData.urgency === opt ? '2px solid var(--accent)' : '1px solid #ddd' }}
                 >
                   {opt}
                 </button>
@@ -346,74 +221,255 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
           </div>
         )}
 
+        {step === 2 && (
+          <div>
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>2. ¿Qué horario te acomodaría más?</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { title: "Mañana", desc: "09:00 - 13:00 hrs" },
+                { title: "Tarde", desc: "14:00 - 18:00 hrs" },
+                { title: "Vespertino", desc: "18:00 - 21:00 hrs" }
+              ].map(opt => (
+                <button 
+                  key={opt.title}
+                  onClick={() => { setFormData({...formData, timeRange: opt.title}); handleNext(); }}
+                  className="secondary-btn"
+                  style={{ textAlign: 'left', padding: '1.2rem 2rem', border: formData.timeRange === opt.title ? '2px solid var(--accent)' : '1px solid #ddd' }}
+                >
+                  <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.2rem' }}>{opt.title}</span>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-soft)' }}>{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {step === 3 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>3. Ingresa tu nombre</h2>
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>3. Ingresa tu nombre</h2>
             <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
               <UserIcon style={{ color: 'var(--accent)', marginRight: '1rem' }} />
-              <input
-                type="text"
+              <input 
+                type="text" 
                 autoFocus
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
                 onKeyDown={(e) => e.key === 'Enter' && formData.name && handleNext()}
                 placeholder="Escribe tu respuesta aquí..."
-                style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+                style={{ border: 'none', background: 'none', fontSize: '1.4rem', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-              <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', margin: 0 }}>Presiona ENTER para continuar</p>
-              <button
-                onClick={handleNext}
-                disabled={!formData.name}
-                className="premium-btn"
-                style={{ padding: '0.8rem 2rem', opacity: formData.name ? 1 : 0.5 }}
-              >
-                Continuar
-              </button>
-            </div>
+            <p style={{ marginTop: '1.5rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>Presiona ENTER para continuar</p>
           </div>
         )}
 
         {step === 4 && (
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '2rem' }}>4. Déjanos tu número de contacto</h2>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0', width: '80px' }}>
-                <span style={{ fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', color: 'var(--text-main)', fontFamily: 'var(--font-serif)', marginRight: '4px' }}>+</span>
-                <input
-                  type="text"
-                  defaultValue="56"
-                  style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0', flex: 1 }}>
-                <Phone style={{ color: 'var(--accent)', marginRight: '1rem' }} />
-                <input
-                  type="tel"
-                  autoFocus
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  onKeyDown={(e) => e.key === 'Enter' && formData.phone && handleNext()}
-                  placeholder="9 1234 5678"
-                  style={{ border: 'none', background: 'none', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
-                />
-              </div>
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>4. Ingresa tu número de teléfono</h2>
+            <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent)', padding: '0.5rem 0' }}>
+              <Phone style={{ color: 'var(--accent)', marginRight: '1rem' }} />
+              <input 
+                type="tel" 
+                autoFocus
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onKeyDown={(e) => e.key === 'Enter' && formData.phone && handleNext()}
+                placeholder="+56 9 ..."
+                style={{ border: 'none', background: 'none', fontSize: '1.4rem', outline: 'none', width: '100%', fontFamily: 'var(--font-serif)' }}
+              />
             </div>
-            <button
-              onClick={handleNext}
-              disabled={!formData.phone || isSubmitting}
-              className="premium-btn"
-              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center', opacity: (formData.phone && !isSubmitting) ? 1 : 0.5 }}
+            <button 
+              onClick={handleNext} 
+              disabled={!formData.phone}
+              className="premium-btn" 
+              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center' }}
             >
-              {isSubmitting ? "Enviando solicitud..." : "Enviar solicitud"} {!isSubmitting && <ArrowRight size={20} />}
+              Finalizar solicitud <ArrowRight size={20} />
             </button>
           </div>
         )}
       </div>
+    );
+  };
 
-      {step > 1 && (
-        <button onClick={handlePrev} style={{ marginTop: '2rem', border: 'none', background: 'none', color: 'var(--text-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', alignSelf: 'flex-start' }}>
+  const renderDirectBookingFlow = () => {
+    return (
+      <div className="animate-fade" key={`directBooking-${step}`}>
+        {step === 1 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+              <CalendarIcon size={24} color="var(--accent)" />
+              <h2 style={{ fontSize: '1.6rem', color: 'var(--primary)', margin: 0 }}>Selecciona un Horario</h2>
+            </div>
+            <p style={{ color: 'var(--text-soft)', marginBottom: '1.5rem' }}>Elige el momento que más te acomoda de la agenda de {therapist.name}.</p>
+            
+            {/* Day Selector */}
+            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '1rem', borderBottom: '1px solid #eaeaea', marginBottom: '1.5rem' }}>
+              {days.map(day => {
+                const hasSlots = availability[day] && availability[day].length > 0;
+                const isActive = activeDayTab === day;
+                return (
+                  <button
+                    key={day}
+                    onClick={() => hasSlots && setActiveDayTab(day)}
+                    style={{
+                      padding: '0.7rem 1.2rem',
+                      borderRadius: '50px',
+                      fontWeight: isActive ? '700' : '500',
+                      background: isActive ? 'var(--primary)' : (hasSlots ? '#f4f4f4' : '#fff'),
+                      color: isActive ? '#fff' : (hasSlots ? 'var(--text-main)' : '#ccc'),
+                      border: `1px solid ${isActive ? 'var(--primary)' : '#eaeaea'}`,
+                      cursor: hasSlots ? 'pointer' : 'not-allowed',
+                      minWidth: '80px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time Slots for Selected Day */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.8rem', maxHeight: '200px', overflowY: 'auto' }}>
+              {activeDayTab && availability[activeDayTab] ? (
+                availability[activeDayTab].map(time => {
+                   const isSelected = formData.selectedDay === activeDayTab && formData.selectedHour === time;
+                   return (
+                     <button
+                       key={time}
+                       onClick={() => {
+                         setFormData({ ...formData, selectedDay: activeDayTab, selectedHour: time });
+                         setTimeout(() => handleNext(), 400); // Auto-advance
+                       }}
+                       style={{
+                         padding: '1rem',
+                         borderRadius: '8px',
+                         background: isSelected ? 'rgba(243, 156, 18, 0.1)' : '#fff',
+                         border: `2px solid ${isSelected ? 'var(--accent)' : '#eaeaea'}`,
+                         color: isSelected ? 'var(--accent)' : 'var(--primary)',
+                         fontWeight: '600',
+                         fontSize: '1.1rem',
+                         display: 'flex',
+                         alignItems: 'center',
+                         justifyContent: 'center',
+                         gap: '0.5rem',
+                         cursor: 'pointer',
+                         transition: 'all 0.2s'
+                       }}
+                     >
+                       {isSelected && <CheckCircle2 size={16} />}
+                       {time}
+                     </button>
+                   );
+                })
+              ) : (
+                <p style={{ color: 'var(--text-soft)', gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>No hay horarios disponibles para este día.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Tus Datos</h2>
+            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>
+              Has seleccionado el {formData.selectedDay} a las {formData.selectedHour} hrs. Déjanos tus datos para agendar.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #eaeaea', padding: '0.5rem 0' }}>
+                <UserIcon style={{ color: 'var(--text-soft)', marginRight: '1rem' }} />
+                <input 
+                  type="text" 
+                  placeholder="Nombre y Apellido"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  style={{ border: 'none', background: 'none', fontSize: '1.1rem', outline: 'none', width: '100%', fontFamily: 'var(--font-sans)', color: 'var(--primary)' }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #eaeaea', padding: '0.5rem 0' }}>
+                <Phone style={{ color: 'var(--text-soft)', marginRight: '1rem' }} />
+                <input 
+                  type="tel" 
+                  placeholder="Teléfono (ej. +56 9 1234 5678)"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  style={{ border: 'none', background: 'none', fontSize: '1.1rem', outline: 'none', width: '100%', fontFamily: 'var(--font-sans)', color: 'var(--primary)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #eaeaea', padding: '0.5rem 0' }}>
+                <Mail style={{ color: 'var(--text-soft)', marginRight: '1rem' }} />
+                <input 
+                  type="email" 
+                  placeholder="Correo electrónico"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  style={{ border: 'none', background: 'none', fontSize: '1.1rem', outline: 'none', width: '100%', fontFamily: 'var(--font-sans)', color: 'var(--primary)' }}
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleNext} 
+              disabled={!formData.name || !formData.phone || !formData.email}
+              className="premium-btn" 
+              style={{ marginTop: '3rem', width: '100%', justifyContent: 'center' }}
+            >
+              Confirmar Reserva <CheckCircle2 size={20} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="glass-morphism animate-fade" style={{ 
+      maxWidth: '600px', 
+      width: '95%', 
+      padding: '4rem', 
+      borderRadius: 'var(--radius-lg)', 
+      position: 'relative',
+      minHeight: '500px',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center'
+    }}>
+      <button onClick={onClose} style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-soft)', zIndex: 10 }}>
+        <X size={24} />
+      </button>
+
+      {/* Progress Bar (Sólo visible cuando hay un flow activo) */}
+      {flowMode && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0' }}>
+          <div style={{ 
+            width: `${(step / totalSteps) * 100}%`, 
+            height: '100%', 
+            backgroundColor: 'var(--accent)', 
+            transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)' 
+          }}></div>
+        </div>
+      )}
+
+      {flowMode && (
+        <div style={{ marginBottom: '2rem' }}>
+          <span style={{ color: 'var(--accent)', fontWeight: '700', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+            PASO {step} DE {totalSteps} {flowMode === 'directBooking' && "- AGENDAMIENTO DIRECTO"}
+          </span>
+        </div>
+      )}
+
+      {/* Content Rendering */}
+      {!flowMode && renderInitialScreen()}
+      {flowMode === 'leaveData' && renderLeaveDataFlow()}
+      {flowMode === 'directBooking' && renderDirectBookingFlow()}
+
+      {/* Botón volver genérico */}
+      {flowMode && (
+        <button onClick={handlePrev} style={{ marginTop: '2rem', border: 'none', background: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', alignSelf: 'flex-start' }}>
           <ArrowLeft size={16} /> Volver
         </button>
       )}

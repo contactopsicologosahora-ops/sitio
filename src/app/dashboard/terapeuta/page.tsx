@@ -1,427 +1,600 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, RefreshCcw, Stethoscope, MessageSquare, ShieldAlert, LogOut } from "lucide-react";
+import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, CheckCircle, XCircle, Edit2, Award, X, Search, Mail, Phone, MapPin, Activity, DollarSign, AlertCircle, LogOut, ChevronRight, Video, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { updateLeadStatusAction, matchPaymentAction, saveProfileAction } from "./actions";
 
 export default function TherapistDashboard() {
-    const router = useRouter();
-    const [authorized, setAuthorized] = useState(false);
+    const [session, setSession] = useState<any>(null);
+    const [therapistInfo, setTherapistInfo] = useState<any>(null);
+    const [loginEmail, setLoginEmail] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [loginError, setLoginError] = useState("");
+
     const [activeTab, setActiveTab] = useState("pacientes");
     const [leads, setLeads] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [availability, setAvailability] = useState<any>({});
-    const [saving, setSaving] = useState(false);
-    const [agendaView, setAgendaView] = useState("calendario"); // "calendario" o "ajustes"
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState<string | null>(new Date().toISOString().split('T')[0]);
-    const [bloqueos, setBloqueos] = useState<string[]>([]);
-    const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
-    const [userName, setUserName] = useState("");
-    const [terapeutaData, setTerapeutaData] = useState<any>(null);
-    const [perfilError, setPerfilError] = useState(false);
+    const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+    const [editingLead, setEditingLead] = useState<any>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [missingEmailAlert, setMissingEmailAlert] = useState<{show: boolean, leadId: number | null}>({ show: false, leadId: null });
 
-    useEffect(() => {
-        const role = localStorage.getItem("user_role");
-        const name = localStorage.getItem("user_name");
-        if (!role) {
-            router.push("/login");
-        } else {
-            setAuthorized(true);
-            setUserName(name || "Especialista");
-            fetchTerapeutaData();
-            fetchBloqueos();
+    const [isAddingPatient, setIsAddingPatient] = useState(false);
+    const [newPatient, setNewPatient] = useState({ name: '', email: '', phone: '', status: 'Paciente' });
+    const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
+
+    const handleMatchPayment = async (paymentId: string, leadId: number) => {
+        const payment = pendingPayments.find(p => p.id === paymentId);
+        const lead = leads.find(l => l.id === leadId);
+        
+        if (payment && lead && confirm(`¿Deseas asociar este pago de ${payment.encuadrado_patient_name} a ${lead.name}? \n\nEl sistema asociará automáticamente futuros pagos provenientes de Encuadrado.`)) {
+            setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
+            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, sessions: (l.sessions || 0) + 1 } : l));
+            
+            try {
+                const response = await matchPaymentAction(session.access_token, paymentId, leadId);
+                if (!response.success) throw new Error(response.error);
+            } catch (error) {
+                console.error("Error matching payment (DLP block):", error);
+                alert("Hubo un error de seguridad impidiendo asociar el pago.");
+            }
         }
-    }, []);
-
-    const fetchBloqueos = async () => {
-        const tId = localStorage.getItem('therapist_id');
-        if (!tId) return;
-        const { data } = await supabase.from('bloqueos').select('blocked_date').eq('therapist_id', tId);
-        if (data) setBloqueos(data.map(b => b.blocked_date));
     };
 
-    const fetchTerapeutaData = async () => {
-        const tId = localStorage.getItem('therapist_id');
-        const userEmail = localStorage.getItem('user_email');
-        setPerfilError(false);
-
-        // Estrategia 1: buscar por ID numérico
-        if (tId) {
-            const { data, error } = await supabase
-                .from('terapeutas')
-                .select('*')
-                .eq('id', parseInt(tId))
-                .single();
-
-            if (data && !error) {
-                setTerapeutaData(data);
+    const handleUpdateLeadStatus = async (id: number, status: string) => {
+        if (status === 'Paciente') {
+            const currentLead = leads.find(l => l.id === id);
+            if (!currentLead?.email) {
+                setMissingEmailAlert({ show: true, leadId: id });
                 return;
             }
         }
 
-        // Estrategia 2: buscar por email guardado en localStorage
-        if (userEmail) {
-            const { data, error } = await supabase
-                .from('terapeutas')
-                .select('*')
-                .eq('email', userEmail)
-                .single();
-
-            if (data && !error) {
-                setTerapeutaData(data);
-                // Actualizar el therapist_id con el ID real de Supabase
-                localStorage.setItem('therapist_id', data.id.toString());
-                return;
-            }
+        const backupLeads = [...leads];
+        setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+        try {
+            const result = await updateLeadStatusAction(session.access_token, id, status);
+            if (!result.success) throw new Error(result.error);
+        } catch (error) {
+            console.error("Error updating lead status:", error);
+            alert("Operación denegada por protocolo de seguridad.");
+            setLeads(backupLeads); // Revertir actualización optimista
         }
+    };
 
-        // Si no se encontró por ningún método, marcar error
-        setPerfilError(true);
+    const handleSaveLeadDetails = async (updatedLead: any) => {
+        setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+        setEditingLead(null);
+        try {
+            const { rut, address, theme, observations, email } = updatedLead;
+            await supabase.from('leads').update({ rut, address, theme, observations, email }).eq('id', updatedLead.id);
+        } catch (error) {
+            console.error("Error saving lead details:", error);
+        }
+    };
+
+    const handleAddPatient = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmittingPatient(true);
+        try {
+            const response = await fetch('/api/add-patient', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    therapistId: therapistInfo.id,
+                    name: newPatient.name,
+                    email: newPatient.email,
+                    phone: newPatient.phone,
+                    status: newPatient.status
+                })
+            });
+            
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error?.message || 'Error en la petición');
+            
+            if (result.success && result.data) {
+                setLeads(prev => [result.data, ...prev]);
+            } else {
+                fetchLeads(therapistInfo.id); // fallback
+            }
+            
+            setIsAddingPatient(false);
+            setNewPatient({ name: '', email: '', phone: '', status: 'Paciente' });
+            alert("Paciente añadido exitosamente");
+        } catch (error) {
+            console.error("Error al añadir paciente:", error);
+            alert(`Hubo un error al añadir el paciente: ${error}`);
+        } finally {
+            setIsSubmittingPatient(false);
+        }
+    };
+
+    const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+    const [availability, setAvailability] = useState<Record<string, string[]>>({});
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [profile, setProfile] = useState({ 
+        price: '', 
+        title: '', 
+        bio: '',
+        tags: '',
+        education: '',
+        impact: '',
+        methodology: '',
+        quote: '',
+        button_text: 'Agendar Evaluación de Ingreso',
+        duration: '50 min'
+    });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+    const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session && session.user.email) {
+                fetchTherapistInfo(session.user.email);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session && session.user.email) {
+                fetchTherapistInfo(session.user.email);
+            } else {
+                setTherapistInfo(null);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const fetchTherapistInfo = async (email: string) => {
+        try {
+            const { data, error } = await supabase.from('terapeutas').select('id, name, email, image, price, title, bio, tags, education, impact, methodology, quote, button_text, duration').eq('email', email).single();
+            if (data && !error) {
+                setTherapistInfo(data);
+                setProfile({ 
+                    price: data.price || '', 
+                    title: data.title || '', 
+                    bio: data.bio || '',
+                    tags: data.tags || '',
+                    education: data.education || '',
+                    impact: data.impact || '',
+                    methodology: data.methodology || '',
+                    quote: data.quote || '',
+                    button_text: data.button_text || 'Agendar Evaluación de Ingreso',
+                    duration: data.duration || '50 min'
+                });
+                fetchLeads(data.id);
+                fetchAvailability(data.id);
+                fetchGoogleStatus(data.id);
+                fetchPendingPayments(data.id);
+            } else {
+                console.error("No therapist found for email", email);
+            }
+        } catch (error) {
+            console.error("Error fetching therapist info:", error);
+        }
+    };
+
+    const fetchLeads = async (tId: number) => {
+        try {
+            const { data, error } = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('therapist_id', tId).order('created_at', { ascending: false });
+            if (error) {
+                const fallback = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('terapeuta_id', tId).order('created_at', { ascending: false });
+                if (fallback.data) setLeads(fallback.data);
+            } else if (data) {
+                setLeads(data);
+            }
+        } catch (error) {
+            console.error("Exception fetching leads:", error);
+        }
+    };
+
+    const fetchAvailability = async (tId: number) => {
+        try {
+            const response = await fetch(`/api/availability?therapistId=${tId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setAvailability(data);
+            }
+        } catch (error) {
+            console.error("Error fetching availability:", error);
+        }
+    };
+
+    const fetchGoogleStatus = async (tId: number) => {
+        try {
+            const res = await fetch(`/api/auth/google/status?therapistId=${tId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setIsGoogleConnected(data.isConnected);
+            }
+        } catch (e) {}
+    };
+
+    const fetchPendingPayments = async (tId: number) => {
+        try {
+            const { data, error } = await supabase
+                .from('payments')
+                .select('id, amount, encuadrado_patient_name, encuadrado_patient_email, payment_date')
+                .eq('status', 'pending_match')
+                .eq('therapist_id', tId)
+                .order('created_at', { ascending: false });
+            if (data && !error) setPendingPayments(data);
+        } catch (error) {
+            console.error("Error fetching payments:", error);
+        }
+    };
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoggingIn(true);
+        setLoginError("");
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email: loginEmail,
+                password: loginPassword,
+            });
+            if (error) throw error;
+        } catch (error: any) {
+            setLoginError(error.message === "Email not confirmed" ? "Debes confirmar tu correo electrónico. Revisa tu bandeja." : "Credenciales incorrectas.");
+        } finally {
+            setIsLoggingIn(false);
+        }
     };
 
     const handleLogout = async () => {
-        localStorage.removeItem("user_role");
-        localStorage.removeItem("user_name");
-        localStorage.removeItem("user_email");
-        localStorage.removeItem("therapist_id");
         await supabase.auth.signOut();
-        router.push("/login");
     };
 
-    const fetchLeads = async () => {
-        setLoading(true);
-        const tId = localStorage.getItem('therapist_id');
-
-        let query = supabase
-            .from('pacientes')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (tId) {
-            query = query.eq('therapist_id', parseInt(tId));
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-            console.error("Error fetching leads from Supabase:", error.message);
-            const local = JSON.parse(localStorage.getItem("leads_backup") || "[]");
-            setLeads(local);
-        } else {
-            setLeads(data || []);
-        }
-        setLoading(false);
-    };
-
-    const updatePatientEmail = async (id: string, email: string) => {
-        const { error } = await supabase
-            .from('pacientes')
-            .update({ email })
-            .eq('id', id);
-
-        if (error) {
-            alert('Error guardando el correo: ' + error.message);
-        } else {
-            setLeads(leads.map(l => l.id === id ? { ...l, email } : l));
-        }
-    };
-
-    const fetchAvailability = async () => {
-        const tId = localStorage.getItem('therapist_id') || '1';
-        const { data, error } = await supabase
-            .from('disponibilidad')
-            .select('*')
-            .eq('therapist_id', parseInt(tId));
-
-        if (!error && data) {
-            const availMap: any = {};
-            data.forEach((item: any) => {
-                if (!availMap[item.day]) availMap[item.day] = [];
-                availMap[item.day].push(item.hour);
-            });
-            setAvailability(availMap);
-        }
-    };
-
-    useEffect(() => {
-        if (authorized) {
-            fetchLeads();
-            fetchAvailability();
-        }
-    }, [authorized]);
-
-    const updateStatus = async (id: number, status: string) => {
-        const { error } = await supabase
-            .from('pacientes')
-            .update({ status })
-            .eq('id', id);
-
-        if (error) {
-            console.error("Error updating status:", error.message);
-        } else {
-            fetchLeads();
-        }
-    };
-
-    const toggleHour = (day: string, hour: string) => {
-        const currentDay = availability[day] || [];
-        const newDay = currentDay.includes(hour)
-            ? currentDay.filter((h: string) => h !== hour)
-            : [...currentDay, hour];
-
-        setAvailability({
-            ...availability,
-            [day]: newDay
+    const toggleSlot = (day: string, time: string) => {
+        setAvailability(prev => {
+            const newAvail = { ...prev };
+            if (!newAvail[day]) newAvail[day] = [];
+            if (newAvail[day].includes(time)) {
+                newAvail[day] = newAvail[day].filter(t => t !== time);
+            } else {
+                newAvail[day] = [...newAvail[day], time];
+            }
+            return newAvail;
         });
     };
 
     const saveAvailability = async () => {
-        setSaving(true);
-        const tId = localStorage.getItem('therapist_id') || '1';
-
-        // Delete previous to update
-        await supabase.from('disponibilidad').delete().eq('therapist_id', parseInt(tId));
-
-        const records = [];
-        for (const day in availability) {
-            for (const hour of availability[day]) {
-                records.push({ therapist_id: parseInt(tId), day, hour });
-            }
-        }
-
-        const { error } = await supabase.from('disponibilidad').insert(records);
-
-        if (error) {
-            alert("Error al guardar: " + error.message);
-        } else {
-            alert("¡Disponibilidad actualizada en Supabase!");
-        }
-        setSaving(false);
-    };
-
-    // Funciones de Agenda
-    const cancelAppointment = async (leadId: string) => {
-        if (!confirm("¿Estás seguro de que deseas cancelar esta cita? El horario volverá a estar disponible.")) return;
-        const { error } = await supabase.from('pacientes').update({ status: 'Cancelado' }).eq('id', leadId);
-        if (!error) fetchLeads();
-    };
-
-    const updatePatientDetails = async (leadId: string, updates: any) => {
-        setUpdatingLeadId(leadId);
-        const { error } = await supabase.from('pacientes').update(updates).eq('id', leadId);
-        if (!error) {
-            setLeads(leads.map(l => l.id === leadId ? { ...l, ...updates } : l));
-        }
-        setUpdatingLeadId(null);
-    };
-
-    const toggleBlockDate = async (date: string) => {
-        const tId = localStorage.getItem('therapist_id');
-        if (!tId) return;
-
-        if (bloqueos.includes(date)) {
-            const { error } = await supabase.from('bloqueos').delete().eq('therapist_id', tId).eq('blocked_date', date);
-            if (!error) setBloqueos(bloqueos.filter(d => d !== date));
-        } else {
-            const { error } = await supabase.from('bloqueos').insert([{ therapist_id: tId, blocked_date: date }]);
-            if (!error) setBloqueos([...bloqueos, date]);
-        }
-    };
-
-    const handlePanicButton = async () => {
-        if (!confirm("¿Estás seguro que deseas activar el Botón de Pánico Académico? Esto enviará una alerta inmediata a los supervisores clínicos (cfernandez.bolton@gmail.com, juanrojaspardo@gmail.com).")) {
-            return;
-        }
-
-        const btn = document.getElementById("panic-btn");
-        if (btn) btn.innerText = "Enviando alerta...";
-
+        setIsSaving(true);
         try {
-            const res = await fetch('/api/panic', {
+            await fetch('/api/availability', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ therapistName: userName })
+                body: JSON.stringify({ therapistId: therapistInfo.id.toString(), availability })
             });
-
-            if (res.ok) {
-                alert("Alerta enviada con éxito. Un supervisor se pondrá en contacto a la brevedad.");
-            } else {
-                alert("Hubo un error al enviar la alerta. Por favor, contacta directamente por teléfono.");
-            }
-        } catch (e) {
-            alert("Hubo un error de conexión.");
+            alert('¡Horarios actualizados correctamente!');
+        } catch (error) {
+            console.error('Error saving availability:', error);
+            alert('Error al guardar los horarios');
         } finally {
-            if (btn) btn.innerHTML = `<span style="display:flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square" style="margin-right: 0.5rem;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Solicitar Supervisión de Caso</span>`;
+            setIsSaving(false);
         }
     };
 
-    if (!authorized) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Validando credenciales...</div>;
+    const saveProfile = async () => {
+        setIsSavingProfile(true);
+        try {
+            const result = await saveProfileAction(session.access_token, profile);
+            if (!result.success) throw new Error(result.error);
+            alert('¡Perfil actualizado correctamente!');
+        } catch (error) {
+            console.error('Error saving profile (DLP block):', error);
+            alert('Error autorizado. No pudimos guardar tu perfil debido a la política de seguridad.');
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
+    if (!session || !therapistInfo) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-serene)' }}>
+                <div className="glass-card animate-fade" style={{ maxWidth: '420px', width: '90%', textAlign: 'center', padding: '3.5rem 2.5rem' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '20px', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 10px 25px rgba(45,62,64,0.3)' }}>
+                        <Activity size={32} />
+                    </div>
+                    <h2 className="serif-font" style={{ marginBottom: '0.5rem', fontSize: '2rem' }}>Portal Clínico</h2>
+                    <p style={{ marginBottom: '2.5rem', color: 'var(--text-soft)', fontSize: '0.95rem' }}>Acceso exclusivo para especialistas.</p>
+                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                        <input
+                            type="email"
+                            placeholder="Correo electrónico"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            className="clean-input"
+                            required
+                        />
+                        <input
+                            type="password"
+                            placeholder="Contraseña"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            className="clean-input"
+                            required
+                        />
+                        {loginError && <p style={{ color: '#e74c3c', fontSize: '0.85rem', margin: 0, fontWeight: '600' }}>{loginError}</p>}
+                        <button type="submit" className="premium-btn" style={{ marginTop: '1rem', justifyContent: 'center', padding: '1rem' }} disabled={isLoggingIn}>
+                            {isLoggingIn ? "Autenticando..." : "Ingresar al Panel"}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    const filteredLeads = [...leads].filter(l => 
+        l.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (l.email && l.email.toLowerCase().includes(searchQuery.toLowerCase()))
+    ).sort((a, b) => {
+        if (a.status === 'Perdido' && b.status !== 'Perdido') return 1;
+        if (a.status !== 'Perdido' && b.status === 'Perdido') return -1;
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+
+    // Cálculos dinámicos (Desactivados temporalmente)
+    const totalLeads = 0; // leads.length;
+    const totalPatients = 0; // leads.filter(l => l.status === 'Paciente' || l.status === 'Alta').length;
+    const activePatients = 0; // leads.filter(l => l.status === 'Paciente').length;
+    const conversionRate = "0.0"; // totalLeads > 0 ? ((totalPatients / totalLeads) * 100).toFixed(1) : "0.0";
+    const estimatedPendingIncome = 0; // pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', display: 'flex' }}>
-            {/* Sidebar */}
-            <aside style={{
-                width: '280px',
-                backgroundColor: 'var(--primary)',
-                color: '#fff',
-                padding: '3rem 1.5rem',
-                height: '100vh',
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: 'var(--shadow-lg)',
-                zIndex: 100
-            }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></div>
-                    Psicólogos Ahora
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-serene)', display: 'flex' }}>
+            
+            {/* Ultra Premium Sidebar */}
+            <aside className="dash-sidebar" style={{ width: '280px', padding: '2.5rem 1.5rem', height: '100vh', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3.5rem', padding: '0 0.5rem' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--accent) 0%, #aa9e8b 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        <Activity size={20} />
+                    </div>
+                    <span style={{ fontSize: '1.2rem', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>PA <span style={{fontWeight: 300, opacity: 0.7}}>Clínica</span></span>
                 </div>
 
-                <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
-                    <button
-                        onClick={() => setActiveTab("pacientes")}
-                        style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "pacientes" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "pacientes" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
-                    >
-                        <Users size={20} /> Pacientes
+                <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem', paddingLeft: '0.5rem' }}>Gestión</span>
+                    
+                    <button onClick={() => setActiveTab("pacientes")} className={`dash-nav-btn ${activeTab === "pacientes" ? "active" : ""}`}>
+                        <Users size={18} /> CRM Pacientes
                     </button>
-                    <button
-                        onClick={() => setActiveTab("metricas")}
-                        style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "metricas" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "metricas" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
-                    >
-                        <TrendingUp size={20} /> Métricas
+                    <button onClick={() => setActiveTab("agenda")} className={`dash-nav-btn ${activeTab === "agenda" ? "active" : ""}`}>
+                        <Calendar size={18} /> Disponibilidad
                     </button>
-                    <button
-                        onClick={() => setActiveTab("agenda")}
-                        style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "agenda" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "agenda" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
-                    >
-                        <Calendar size={20} /> Mi Agenda
+                    
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', margin: '1.5rem 0 0.5rem', paddingLeft: '0.5rem' }}>Análisis</span>
+                    
+                    <button onClick={() => setActiveTab("metricas")} className={`dash-nav-btn ${activeTab === "metricas" ? "active" : ""}`}>
+                        <TrendingUp size={18} /> Desempeño
                     </button>
-                    <button
-                        onClick={() => setActiveTab("comunidad")}
-                        style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "comunidad" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "comunidad" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
-                    >
-                        <ShieldAlert size={20} /> Peer Assist
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("perfil")}
-                        style={{ padding: '1rem', border: 'none', borderRadius: '12px', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1rem', color: activeTab === "perfil" ? '#fff' : 'rgba(255,255,255,0.6)', backgroundColor: activeTab === "perfil" ? 'rgba(255,255,255,0.1)' : 'transparent' }}
-                    >
-                        <User size={20} /> Editar Perfil
+
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', margin: '1.5rem 0 0.5rem', paddingLeft: '0.5rem' }}>Configuración</span>
+                    
+                    <button onClick={() => setActiveTab("perfil")} className={`dash-nav-btn ${activeTab === "perfil" ? "active" : ""}`}>
+                        <User size={18} /> Mi Perfil Público
                     </button>
                 </nav>
 
-                <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <User color="#fff" size={18} />
-                        </div>
-                        <div>
-                            <p style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0, color: '#fff' }}>Ps. {userName}</p>
-                            <p style={{ fontSize: '0.75rem', opacity: 0.6, margin: 0, color: '#fff' }}>Psicoterapeuta Online</p>
+                <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
+                        <img src={therapistInfo.image || "https://via.placeholder.com/40"} alt="Profile" style={{ width: '44px', height: '44px', borderRadius: '14px', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} />
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <p style={{ fontSize: '0.95rem', fontWeight: '600', color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', margin: 0 }}>{therapistInfo.name}</p>
+                            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', margin: 0 }}>Especialista</p>
                         </div>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.8rem',
-                            padding: '0.8rem',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            fontSize: '0.9rem'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                    >
+                    <button onClick={handleLogout} style={{ width: '100%', padding: '0.8rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(231,76,60,0.1)'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}>
                         <LogOut size={16} /> Cerrar Sesión
                     </button>
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main style={{ flex: 1, padding: '4rem 5% 8rem', marginLeft: '280px' }}>
-
+            {/* Main Content Area */}
+            <main style={{ flex: 1, padding: '3rem 4rem 6rem', overflowY: 'auto' }}>
+                
                 {activeTab === "pacientes" && (
                     <div className="animate-fade">
-                        <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
                             <div>
-                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Gestión de Pacientes</h1>
-                                <p style={{ color: 'var(--text-soft)' }}>Historial de reservas y seguimiento de contactos.</p>
+                                <h1 className="serif-font" style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>CRM de Pacientes</h1>
+                                <p style={{ color: 'var(--text-soft)' }}>Gestiona tus casos clínicos, historial y seguimiento comercial.</p>
                             </div>
-                            <button onClick={fetchLeads} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Actualizar
-                            </button>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <div className="search-container">
+                                    <Search size={18} />
+                                    <input 
+                                        type="text" 
+                                        className="clean-input" 
+                                        placeholder="Buscar por nombre o email..." 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                                <button className="premium-btn" onClick={() => setIsAddingPatient(true)}>
+                                    + Nuevo Paciente
+                                </button>
+                            </div>
                         </header>
 
-                        <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                            {loading ? (
-                                <p style={{ textAlign: 'center', padding: '2rem' }}>Cargando datos...</p>
-                            ) : leads.length === 0 ? (
-                                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-soft)' }}>Aún no hay pacientes registrados.</p>
-                            ) : (
-                                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 1rem' }}>
-                                    <thead>
-                                        <tr style={{ textAlign: 'left', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-                                            <th style={{ padding: '1rem' }}>PACIENTE</th>
-                                            <th style={{ padding: '1rem' }}>EMAIL</th>
-                                            <th style={{ padding: '1rem' }}>FECHA</th>
-                                            <th style={{ padding: '1rem' }}>ESTADO</th>
-                                            <th style={{ padding: '1rem' }}>ACCIONES</th>
+                        {/* Alertas de Pagos Péndientes (Inbox Style) */}
+                        {pendingPayments.length > 0 && (
+                            <div className="glass-card animate-fade" style={{ padding: '0', marginBottom: '2.5rem', border: '1px solid #ffe69c', overflow: 'hidden' }}>
+                                <div style={{ backgroundColor: '#fff8e1', padding: '1.2rem 1.5rem', borderBottom: '1px solid #ffe69c', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                    <div style={{ background: '#ffc107', color: '#fff', padding: '6px', borderRadius: '8px' }}><AlertCircle size={20} /></div>
+                                    <h3 style={{ fontSize: '1rem', margin: 0, color: '#856404' }}>Acción Requerida: {pendingPayments.length} pago(s) de Encuadrado sin asociar</h3>
+                                </div>
+                                <div style={{ padding: '1rem 1.5rem' }}>
+                                    {pendingPayments.map(payment => (
+                                        <div key={payment.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 0', borderBottom: '1px solid #f1f3f5', flexWrap: 'wrap', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cc9a06', fontWeight: 'bold' }}>
+                                                    {payment.amount ? '$' : '-'}
+                                                </div>
+                                                <div>
+                                                    <p style={{ margin: 0, fontWeight: '700', color: '#333', fontSize: '0.95rem' }}>{payment.encuadrado_patient_name}</p>
+                                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+                                                        {payment.encuadrado_patient_email || 'Email no reportado'} 
+                                                        <span style={{ margin: '0 0.5rem', color: '#ddd' }}>|</span> 
+                                                        <strong style={{ color: '#198754' }}>${payment.amount?.toLocaleString('es-CL') || 0}</strong>
+                                                        <span style={{ margin: '0 0.5rem', color: '#ddd' }}>|</span> 
+                                                        {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : 'Sin fecha'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-soft)' }}>Asociar al expediente de:</span>
+                                                <select 
+                                                    onChange={(e) => handleMatchPayment(payment.id, parseInt(e.target.value))}
+                                                    value=""
+                                                    className="clean-input"
+                                                    style={{ padding: '0.6rem 1rem', minWidth: '220px', borderRadius: '8px' }}
+                                                >
+                                                    <option value="" disabled>Seleccionar paciente...</option>
+                                                    {leads.filter(l => l.status === 'Paciente' || l.status === 'Alta').map(l => (
+                                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Data Grid Premium */}
+                        <div className="glass-card" style={{ overflow: 'hidden' }}>
+                            <table className="dash-table">
+                                <thead>
+                                    <tr>
+                                        <th>Paciente</th>
+                                        <th>Información Clínica</th>
+                                        <th>Estado</th>
+                                        <th style={{ textAlign: 'center' }}>Sesiones</th>
+                                        <th style={{ textAlign: 'right' }}>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredLeads.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-soft)' }}>
+                                                <Users size={48} style={{ opacity: 0.2, marginBottom: '1rem', margin: '0 auto' }} />
+                                                <p>No se encontraron registros de pacientes.</p>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {leads.map(lead => (
-                                            <tr key={lead.id} style={{ backgroundColor: '#fafafa', borderRadius: '12px' }}>
-                                                <td style={{ padding: '1.5rem', fontWeight: '600', borderRadius: '12px 0 0 12px' }}>
-                                                    {lead.name}
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', fontWeight: '400' }}>{lead.phone}</p>
-                                                </td>
-                                                <td style={{ padding: '1.5rem' }}>
-                                                    <input
-                                                        type="email"
-                                                        defaultValue={lead.email || ''}
-                                                        placeholder="Añadir correo..."
-                                                        onBlur={(e) => updatePatientEmail(lead.id, e.target.value)}
-                                                        style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.85rem', width: '100%', outline: 'none' }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '1.5rem' }}>{new Date(lead.created_at || Date.now()).toLocaleDateString()}</td>
-                                                <td style={{ padding: '1.5rem' }}>
-                                                    <span style={{
-                                                        padding: '0.4rem 1rem',
-                                                        borderRadius: '50px',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '700',
-                                                        backgroundColor: lead.status === 'Pendiente' ? '#fff3cd' : lead.status === 'Paciente' ? '#d1e7dd' : '#f8d7da',
-                                                        color: lead.status === 'Pendiente' ? '#856404' : lead.status === 'Paciente' ? '#0f5132' : '#842029'
-                                                    }}>
-                                                        {lead.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '1.5rem', borderRadius: '0 12px 12px 0' }}>
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        <button onClick={() => updateStatus(lead.id, 'Paciente')} title="Marcar como Paciente" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#198754' }}><CheckCircle size={20} /></button>
-                                                        <button onClick={() => updateStatus(lead.id, 'Perdido')} title="Marcar como Perdido" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc3545' }}><XCircle size={20} /></button>
-                                                        {lead.status === 'Paciente' && (
-                                                            <button onClick={() => alert(`Enviando acceso gratuito de la "Farmacia IA" a ${lead.name}...\n(Herramienta: Santuario Cognitivo)`)} title="Prescribir IA" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary)' }}><Stethoscope size={20} /></button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
+                                    ) : (
+                                        filteredLeads.map(lead => {
+                                            const init = lead.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase();
+                                            return (
+                                                <tr key={lead.id}>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                            <div className="avatar-initials">{init}</div>
+                                                            <div>
+                                                                <p style={{ margin: 0, fontWeight: '700', color: 'var(--text-main)', fontSize: '0.95rem' }}>{lead.name}</p>
+                                                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-soft)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                                    <Mail size={12}/> 
+                                                                    {lead.email ? (
+                                                                        lead.email
+                                                                    ) : (
+                                                                        lead.status !== 'Perdido' ? (
+                                                                            <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: '600' }} title="Falta correo electrónico">
+                                                                                <AlertCircle size={14} /> Sin correo (Requerido)
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span style={{ color: 'var(--text-soft)' }}>Sin correo</span>
+                                                                        )
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Phone size={12} color="var(--primary-muted)"/> {lead.phone || 'N/A'}</span>
+                                                            {lead.theme && <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '500', background: '#f0f9f5', padding: '2px 6px', borderRadius: '4px', width: 'fit-content' }}>{lead.theme.substring(0,25)}{lead.theme.length > 25 ? '...' : ''}</span>}
+                                                            {lead.created_at && (
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
+                                                                    <Clock size={10} /> Ingreso: {new Date(lead.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`status-pill ${lead.status.toLowerCase()}`}>
+                                                            {lead.status === 'Paciente' && <Activity size={12}/>}
+                                                            {lead.status === 'Pendiente' && <Clock size={12}/>}
+                                                            {lead.status === 'Alta' && <Award size={12}/>}
+                                                            {lead.status === 'Perdido' && <XCircle size={12}/>}
+                                                            {lead.status}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px', height: '32px', borderRadius: '8px', background: lead.sessions > 0 ? 'var(--primary)' : '#f1f3f5', color: lead.sessions > 0 ? '#fff' : 'var(--text-soft)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                                            {lead.sessions || 0}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                            <button onClick={() => setEditingLead(lead)} className="action-btn-subtle info" title="Ver Expediente"><FileText size={16} /></button>
+                                                            {lead.status !== 'Paciente' && lead.status !== 'Alta' && (
+                                                                <button onClick={() => handleUpdateLeadStatus(lead.id, 'Paciente')} className="action-btn-subtle success" title="Convertir a Paciente Activo"><CheckCircle size={16} /></button>
+                                                            )}
+                                                            {lead.status === 'Paciente' && (
+                                                                <button onClick={() => handleUpdateLeadStatus(lead.id, 'Alta')} className="action-btn-subtle info" title="Dar de Alta a Paciente"><Award size={16} /></button>
+                                                            )}
+                                                            {lead.status !== 'Perdido' && lead.status !== 'Alta' && (
+                                                                <button onClick={() => handleUpdateLeadStatus(lead.id, 'Perdido')} className="action-btn-subtle danger" title="Descartar"><XCircle size={16} /></button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
+
+                        {isAddingPatient && (
+                            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                                <div className="glass-card animate-fade" style={{ maxWidth: '500px', width: '90%', padding: '2.5rem', position: 'relative' }}>
+                                    <button onClick={() => setIsAddingPatient(false)} style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-soft)' }}><X size={20}/></button>
+                                    <h2 className="serif-font" style={{ marginBottom: '0.5rem', fontSize: '1.8rem' }}>Nuevo Paciente</h2>
+                                    <p style={{ color: 'var(--text-soft)', marginBottom: '2rem', fontSize: '0.9rem' }}>Añade un paciente directamente a tu CRM.</p>
+                                    
+                                    <form onSubmit={handleAddPatient} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>Nombre Completo *</label>
+                                            <input type="text" className="clean-input" value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})} required placeholder="Ej. Juan Pérez" />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>Email</label>
+                                            <input type="email" className="clean-input" value={newPatient.email} onChange={e => setNewPatient({...newPatient, email: e.target.value})} placeholder="juan@ejemplo.com" />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>Teléfono</label>
+                                            <input type="tel" className="clean-input" value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: e.target.value})} placeholder="+56 9 ..." />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>Estado Inicial</label>
+                                            <select className="clean-input" value={newPatient.status} onChange={e => setNewPatient({...newPatient, status: e.target.value})}>
+                                                <option value="Paciente">Paciente Activo</option>
+                                                <option value="Pendiente">Pendiente de agendar</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" className="premium-btn" style={{ justifyContent: 'center', marginTop: '1rem' }} disabled={isSubmittingPatient}>
+                                            {isSubmittingPatient ? "Guardando..." : "Guardar Paciente"}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -429,61 +602,73 @@ export default function TherapistDashboard() {
                     <div className="animate-fade">
                         <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                             <div>
-                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Tus Métricas</h1>
-                                <p style={{ color: 'var(--text-soft)' }}>Análisis de rendimiento y conversión transversal de tu perfil.</p>
+                                <h1 className="serif-font" style={{ fontSize: '2.4rem', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    Panel de Desempeño
+                                    <span style={{ fontSize: '0.9rem', backgroundColor: '#fff3cd', color: '#856404', padding: '0.3rem 0.8rem', borderRadius: '50px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap', fontFamily: 'var(--font-sans)', letterSpacing: 'normal' }}><AlertCircle size={16}/> Próximamente disponible</span>
+                                </h1>
+                                <p style={{ color: 'var(--text-soft)' }}>Métricas calculadas en tiempo real para tu práctica privada.</p>
                             </div>
-                            <select style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid #ddd', backgroundColor: '#fff', fontSize: '0.9rem' }}>
-                                <option value="all">Histórico</option>
-                                <option value="today">Hoy</option>
-                                <option value="7d">Últimos 7 días</option>
-                                <option value="30d">Últimos 30 días</option>
-                                <option value="90d">Últimos 3 meses</option>
-                                <option value="6m">Últimos 6 meses</option>
-                                <option value="year">Este año</option>
-                            </select>
                         </header>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
-                            <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Impresiones</p>
-                                <h2 style={{ fontSize: '2.5rem' }}>{terapeutaData?.impresiones || 0}</h2>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Visualizaciones de perfil</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                            
+                            <div className="glass-card" style={{ padding: '1.8rem', borderTop: '4px solid #10b981' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pacientes Activos</p>
+                                    <div style={{ background: '#e6f4ea', padding: '8px', borderRadius: '10px', color: '#10b981' }}><Activity size={20}/></div>
+                                </div>
+                                <h2 style={{ fontSize: '2.8rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1 }}>{activePatients}</h2>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: 0 }}>De {totalPatients} pacientes históricos</p>
                             </div>
 
-                            <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Clics</p>
-                                <h2 style={{ fontSize: '2.5rem' }}>{terapeutaData?.clics || 0}</h2>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Clics en "Reservar"</p>
+                            <div className="glass-card" style={{ padding: '1.8rem', borderTop: '4px solid var(--primary)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasa de Conversión</p>
+                                    <div style={{ background: '#f0f4f8', padding: '8px', borderRadius: '10px', color: 'var(--primary)' }}><TrendingUp size={20}/></div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                    <h2 style={{ fontSize: '2.8rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1 }}>{conversionRate}%</h2>
+                                </div>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: 0 }}>Desde contactos totales ({totalLeads})</p>
                             </div>
 
-                            <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '2px solid var(--accent-light)' }}>
-                                <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>Leads</p>
-                                <h2 style={{ fontSize: '2.5rem' }}>{leads.length}</h2>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>Formularios completados</p>
+                            <div className="glass-card" style={{ padding: '1.8rem', borderTop: '4px solid #f59e0b' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ingreso Pdte.</p>
+                                    <div style={{ background: '#fef3c7', padding: '8px', borderRadius: '10px', color: '#f59e0b' }}><DollarSign size={20}/></div>
+                                </div>
+                                <h2 style={{ fontSize: '2.8rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1 }}>${(estimatedPendingIncome / 1000).toFixed(0)}k</h2>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: 0 }}>Requiere asociación manual</p>
                             </div>
 
-                            <div style={{ padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', backgroundColor: '#f0fdf4' }}>
-                                <p style={{ color: '#166534', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: '600' }}>Conversiones</p>
-                                <h2 style={{ fontSize: '2.5rem', color: '#15803d' }}>{leads.filter(l => l.status === 'Paciente').length}</h2>
-                                <p style={{ fontSize: '0.8rem', color: '#166534', opacity: 0.8, marginTop: '0.5rem' }}>Pacientes confirmados</p>
-                            </div>
-
-                            <div style={{ padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', backgroundColor: '#fef2f2' }}>
-                                <p style={{ color: '#991b1b', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: '600' }}>Perdidos</p>
-                                <h2 style={{ fontSize: '2.5rem', color: '#b91c1c' }}>{leads.filter(l => l.status === 'Perdido').length}</h2>
-                                <p style={{ fontSize: '0.8rem', color: '#991b1b', opacity: 0.8, marginTop: '0.5rem' }}>Descartados o no asisten</p>
+                            <div className="glass-card" style={{ padding: '1.8rem', borderTop: '4px solid #8b7d6b' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ranking Global</p>
+                                    <div style={{ background: '#f5f2ed', padding: '8px', borderRadius: '10px', color: '#8b7d6b' }}><Award size={20}/></div>
+                                </div>
+                                <h2 style={{ fontSize: '2.8rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1 }}>0<span style={{ fontSize: '1.2rem', color: 'var(--text-soft)', fontWeight: 400 }}>/100</span></h2>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: 0, fontWeight: '700' }}>Sin datos aún</p>
                             </div>
                         </div>
 
-                        <div style={{ backgroundColor: '#fff', padding: '3rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center' }}>
-                            <p style={{ color: 'var(--text-soft)', marginBottom: '2rem' }}>Visualización de tendencia de visitas semanales</p>
-                            <div style={{ height: '240px', display: 'flex', alignItems: 'flex-end', gap: '1.5rem', justifyContent: 'center' }}>
-                                {[40, 60, 45, 90, 65, 80, 55].map((h, i) => (
-                                    <div key={i} style={{ width: '40px', height: `${h}%`, backgroundColor: i === 3 ? 'var(--accent)' : 'var(--primary-muted)', borderRadius: '8px 8px 0 0', opacity: 0.8 }}></div>
+                        {/* Visual Trend Chart (CSS based for premium feel without massive libs) */}
+                        <div className="glass-card" style={{ padding: '2.5rem', width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Flujo de Reservas Recientes</h3>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-soft)' }}>Representación de actividad semanal</p>
+                                </div>
+                            </div>
+                            <div style={{ height: '260px', display: 'flex', alignItems: 'flex-end', gap: '2rem', justifyContent: 'space-around', paddingTop: '1rem', borderBottom: '1px solid #f1f3f5' }}>
+                                {[0, 0, 0, 0, 0, 0, 0].map((h, i) => (
+                                    <div key={i} style={{ flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                        <div style={{ width: '40%', height: `${h}%`, background: 'linear-gradient(180deg, var(--primary-muted) 0%, rgba(94,114,107,0.3) 100%)', borderRadius: '8px 8px 0 0', transition: 'height 1s ease', position: 'relative' }}>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
-                            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1rem', color: 'var(--text-soft)', fontSize: '0.75rem' }}>
-                                {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map(d => <span key={d}>{d}</span>)}
+                            <div style={{ display: 'flex', gap: '2rem', justifyContent: 'space-around', marginTop: '1rem', color: 'var(--text-soft)', fontSize: '0.8rem', fontWeight: '600' }}>
+                                {days.map(d => <span key={d} style={{ flex: 1, textAlign: 'center' }}>{d}</span>)}
                             </div>
                         </div>
                     </div>
@@ -491,296 +676,56 @@ export default function TherapistDashboard() {
 
                 {activeTab === "agenda" && (
                     <div className="animate-fade">
-                        <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Mi Agenda</h1>
-                                <p style={{ color: 'var(--text-soft)' }}>Gestiona tus citas y configura tu disponibilidad horaria.</p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', backgroundColor: '#eee', padding: '0.4rem', borderRadius: '12px' }}>
-                                <button
-                                    onClick={() => setAgendaView("calendario")}
-                                    style={{
-                                        padding: '0.6rem 1.2rem',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '0.9rem',
-                                        fontWeight: '600',
-                                        backgroundColor: agendaView === "calendario" ? '#fff' : 'transparent',
-                                        boxShadow: agendaView === "calendario" ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                                    }}
-                                >
-                                    Calendario de Citas
-                                </button>
-                                <button
-                                    onClick={() => setAgendaView("ajustes")}
-                                    style={{
-                                        padding: '0.6rem 1.2rem',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '0.9rem',
-                                        fontWeight: '600',
-                                        backgroundColor: agendaView === "ajustes" ? '#fff' : 'transparent',
-                                        boxShadow: agendaView === "ajustes" ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                                    }}
-                                >
-                                    Configurar Disponibilidad
-                                </button>
-                            </div>
+                        <header style={{ marginBottom: '2.5rem' }}>
+                            <h1 className="serif-font" style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>Configuración de Agenda</h1>
+                            <p style={{ color: 'var(--text-soft)' }}>Administra tu disponibilidad y sincronización de calendario.</p>
                         </header>
 
-                        {agendaView === "calendario" ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
-                                {/* Monthly Calendar */}
-                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                                        <h3 style={{ margin: 0, textTransform: 'capitalize' }}>
-                                            {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                                        </h3>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="secondary-btn" style={{ padding: '0.5rem' }}><ArrowUpRight size={18} style={{ transform: 'rotate(-135deg)' }} /></button>
-                                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="secondary-btn" style={{ padding: '0.5rem' }}><ArrowUpRight size={18} style={{ transform: 'rotate(-45deg)' }} /></button>
-                                        </div>
-                                    </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', backgroundColor: '#eee', border: '1px solid #eee' }}>
-                                        {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map(d => (
-                                            <div key={d} style={{ backgroundColor: '#f8f9fa', padding: '0.8rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-soft)' }}>{d}</div>
-                                        ))}
-                                        {(() => {
-                                            const days = [];
-                                            const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-                                            const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-
-                                            // Padding for start of month (Monday start)
-                                            let startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-                                            for (let i = 0; i < startPadding; i++) days.push(<div key={`pad-${i}`} style={{ backgroundColor: '#fff', height: '100px' }}></div>);
-
-                                            for (let d = 1; d <= lastDay.getDate(); d++) {
-                                                const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                                                const dayBookings = leads.filter(l => l.appointment_date === dateStr && l.status !== 'Cancelado');
-                                                const isSelected = selectedDate === dateStr;
-                                                const isToday = new Date().toISOString().split('T')[0] === dateStr;
-                                                const isBlocked = bloqueos.includes(dateStr);
-
-                                                days.push(
-                                                    <div
-                                                        key={d}
-                                                        onClick={() => setSelectedDate(dateStr)}
-                                                        style={{
-                                                            backgroundColor: isBlocked ? '#ffebee' : (isSelected ? 'var(--accent-light)' : '#fff'),
-                                                            height: '100px',
-                                                            padding: '0.5rem',
-                                                            cursor: 'pointer',
-                                                            position: 'relative',
-                                                            border: isToday ? '2px solid var(--accent)' : 'none',
-                                                            opacity: isBlocked ? 0.8 : 1
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal', color: isBlocked ? '#d32f2f' : 'inherit' }}>{d}</span>
-                                                            {isBlocked && <ShieldAlert size={12} color="#d32f2f" />}
-                                                        </div>
-                                                        {dayBookings.length > 0 && (
-                                                            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                                {dayBookings.slice(0, 2).map((b, idx) => (
-                                                                    <div key={idx} style={{ backgroundColor: 'var(--primary)', color: '#fff', fontSize: '0.65rem', padding: '2px 4px', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                        {b.appointment_time} {b.name}
-                                                                    </div>
-                                                                ))}
-                                                                {dayBookings.length > 2 && <div style={{ fontSize: '0.6rem', color: 'var(--text-soft)', textAlign: 'center' }}>+ {dayBookings.length - 2} más</div>}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            }
-                                            return days;
-                                        })()}
-                                    </div>
-                                </div>
-
-                                {/* Appointment List for selected day */}
-                                <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                                        <h3 style={{ margin: 0 }}>Detalle: {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : "Selecciona un día"}</h3>
-                                        {selectedDate && (
-                                            <button
-                                                onClick={() => toggleBlockDate(selectedDate)}
-                                                style={{
-                                                    padding: '0.4rem 0.8rem',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #ffcdd2',
-                                                    fontSize: '0.75rem',
-                                                    cursor: 'pointer',
-                                                    backgroundColor: bloqueos.includes(selectedDate) ? '#d32f2f' : '#fff',
-                                                    color: bloqueos.includes(selectedDate) ? '#fff' : '#d32f2f'
-                                                }}
-                                            >
-                                                {bloqueos.includes(selectedDate) ? "Desbloquear Día" : "Bloquear Día"}
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                        {selectedDate && leads.filter(l => l.appointment_date === selectedDate).length > 0 ? (
-                                            leads.filter(l => l.appointment_date === selectedDate)
-                                                .sort((a, b) => (a.appointment_time || "").localeCompare(b.appointment_time || ""))
-                                                .map(lead => (
-                                                    <div key={lead.id} style={{ padding: '1.5rem', backgroundColor: '#f8f9fa', borderRadius: '16px', borderLeft: lead.status === 'Cancelado' ? '4px solid #ddd' : '4px solid var(--accent)', opacity: lead.status === 'Cancelado' ? 0.6 : 1 }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                                            <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>{lead.appointment_time}</span>
-                                                            <span style={{
-                                                                fontSize: '0.75rem',
-                                                                padding: '0.3rem 0.8rem',
-                                                                borderRadius: '50px',
-                                                                backgroundColor: lead.status === 'Cancelado' ? '#f5f5f5' : '#e8f5e9',
-                                                                color: lead.status === 'Cancelado' ? '#999' : '#2e7d32'
-                                                            }}>
-                                                                {lead.status === 'Cancelado' ? 'Cancelado' : 'Reservado'}
-                                                            </span>
-                                                        </div>
-
-                                                        <h4 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem' }}>{lead.name}</h4>
-                                                        <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                                            <span>📞 {lead.phone}</span>
-                                                            <button
-                                                                onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\s+/g, '')}`, '_blank')}
-                                                                style={{ border: 'none', background: 'none', color: '#25D366', cursor: 'pointer', padding: 0, fontWeight: '600' }}
-                                                            >
-                                                                WhatsApp
-                                                            </button>
-                                                        </div>
-
-                                                        {lead.status !== 'Cancelado' && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-soft)', display: 'block', marginBottom: '0.4rem' }}>LINK DE SESIÓN (Zoom/Meet)</label>
-                                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                                        <input
-                                                                            type="text"
-                                                                            defaultValue={lead.session_link || ""}
-                                                                            placeholder="https://zoom.us/j/..."
-                                                                            onBlur={(e) => updatePatientDetails(lead.id, { session_link: e.target.value })}
-                                                                            style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem' }}
-                                                                        />
-                                                                        {lead.session_link && (
-                                                                            <button
-                                                                                onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\s+/g, '')}?text=Hola%20${lead.name},%20aquí%20tienes%20el%20link%20para%20nuestra%20sesión:%20${encodeURIComponent(lead.session_link)}`, '_blank')}
-                                                                                style={{ padding: '0.5rem', borderRadius: '8px', border: 'none', backgroundColor: '#25D366', color: '#fff', cursor: 'pointer' }}
-                                                                                title="Enviar link por WhatsApp"
-                                                                            >
-                                                                                <MessageSquare size={16} />
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-soft)', display: 'block', marginBottom: '0.4rem' }}>NOTAS PRIVADAS</label>
-                                                                    <textarea
-                                                                        defaultValue={lead.notes || ""}
-                                                                        placeholder="Motivo de consulta, puntos claves..."
-                                                                        onBlur={(e) => updatePatientDetails(lead.id, { notes: e.target.value })}
-                                                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem', minHeight: '80px', fontFamily: 'inherit' }}
-                                                                    />
-                                                                </div>
-
-                                                                <button
-                                                                    onClick={() => cancelAppointment(lead.id)}
-                                                                    style={{ alignSelf: 'flex-start', color: '#d32f2f', border: 'none', background: 'none', padding: 0.5, fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
-                                                                >
-                                                                    Cancelar Cita definitivamente
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                        ) : (
-                                            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-soft)' }}>
-                                                <Calendar size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-                                                <p>{bloqueos.includes(selectedDate || "") ? "Este día está BLOQUEADO." : "No hay citas agendadas."}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem' }}>
-                                    {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(day => (
-                                        <div key={day} style={{ textAlign: 'center' }}>
-                                            <p style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>{day}</p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t => (
-                                                    <button
-                                                        key={t}
-                                                        onClick={() => toggleHour(day, t)}
-                                                        style={{
-                                                            padding: '0.6rem',
-                                                            border: '1px solid #eee',
-                                                            borderRadius: '8px',
-                                                            fontSize: '0.8rem',
-                                                            cursor: 'pointer',
-                                                            backgroundColor: availability[day]?.includes(t) ? 'var(--accent)' : '#fff',
-                                                            color: availability[day]?.includes(t) ? '#fff' : 'inherit'
-                                                        }}>
-                                                        {t}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div style={{ marginTop: '3rem', textAlign: 'right' }}>
-                                    <button
-                                        onClick={saveAvailability}
-                                        disabled={saving}
-                                        className="premium-btn"
-                                    >
-                                        {saving ? "Guardando..." : "Guardar disponibilidad"}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "comunidad" && (
-                    <div className="animate-fade">
-                        <header style={{ marginBottom: '3rem' }}>
-                            <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Peer Assist & Supervisión</h1>
-                            <p style={{ color: 'var(--text-soft)' }}>Foro clínico anonimizado exclusivo para especialistas verificados de la red.</p>
-                        </header>
-
-                        <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', marginBottom: '2rem' }}>
-                                <div style={{ padding: '1rem', backgroundColor: '#e8f5e9', borderRadius: '50%' }}>
-                                    <ShieldAlert size={32} color="#27ae60" />
-                                </div>
+                        <div className="glass-card" style={{ padding: '2.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                                 <div>
-                                    <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Botón de Pánico Académico</h3>
-                                    <p style={{ color: 'var(--text-soft)', lineHeight: 1.6, maxWidth: '600px' }}>
-                                        ¿Atascado en un caso complejo? Solicita "Supervisión Flash". Describe la situación anonimizada (sin nombres ni datos identificables) y colegas senior o psiquiatras de nuestra red te dejarán su impresión diagnóstica en menos de 24 horas.
-                                    </p>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Bloques de Disponibilidad Semanal</h3>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-soft)' }}>Selecciona las horas habilitadas para recibir nuevas reservas.</p>
                                 </div>
+                                <button className="premium-btn" onClick={saveAvailability} disabled={isSaving} style={{ padding: '0.8rem 1.5rem' }}>
+                                    {isSaving ? "Guardando cambios..." : "Guardar Disponibilidad"}
+                                </button>
                             </div>
-                            <button id="panic-btn" onClick={handlePanicButton} className="premium-btn" style={{ padding: '1rem 2rem' }}>
-                                <MessageSquare size={18} style={{ marginRight: '0.5rem' }} /> Solicitar Supervisión de Caso
-                            </button>
 
-                            <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '3rem 0' }} />
-
-                            <h4 style={{ marginBottom: '1.5rem', color: 'var(--text-light)' }}>Casos Recientes en Discusión</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{ padding: '1.5rem', border: '1px solid #eee', borderRadius: '12px', borderLeft: '4px solid #f39c12' }}>
-                                    <h5 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Caso #842: Resistencia al encuadre en paciente TLP</h5>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-soft)', marginBottom: '1rem' }}>Paciente de 24 años presenta múltiples crisis durante la semana exigiendo contacto constante...</p>
-                                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '600' }}>
-                                        <span>3 Comentarios de Especialistas</span>
-                                        <span>• Hace 2 horas</span>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem' }}>
+                                {days.map(day => (
+                                    <div key={day} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                        <div style={{ textAlign: 'center', padding: '0.8rem 0', background: '#f8f9fa', borderRadius: '12px', border: '1px solid #e9ecef' }}>
+                                            <p style={{ margin: 0, fontWeight: '700', color: 'var(--text-main)', fontSize: '0.95rem' }}>{day}</p>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            {hours.map(time => {
+                                                const isSelected = availability[day]?.includes(time);
+                                                return (
+                                                    <button 
+                                                        key={time} 
+                                                        onClick={() => toggleSlot(day, time)} 
+                                                        style={{ 
+                                                            padding: '0.7rem 0', 
+                                                            border: isSelected ? '1px solid var(--primary)' : '1px solid #eee', 
+                                                            borderRadius: '8px', 
+                                                            fontSize: '0.85rem', 
+                                                            cursor: 'pointer', 
+                                                            backgroundColor: isSelected ? 'var(--primary)' : '#fff',
+                                                            color: isSelected ? '#fff' : 'var(--text-soft)',
+                                                            fontWeight: isSelected ? '600' : '400',
+                                                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                            width: '100%',
+                                                            boxShadow: isSelected ? '0 4px 10px rgba(45,62,64,0.15)' : 'none'
+                                                        }}>
+                                                        {time}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -788,129 +733,231 @@ export default function TherapistDashboard() {
 
                 {activeTab === "perfil" && (
                     <div className="animate-fade">
-                        <header style={{ marginBottom: '3rem' }}>
-                            <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Editar Datos</h1>
-                            <p style={{ color: 'var(--text-soft)' }}>Administra tu tarjeta de presentación pública y tu seguridad.</p>
+                        <header style={{ marginBottom: '2.5rem' }}>
+                            <h1 className="serif-font" style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>Perfil Profesional</h1>
+                            <p style={{ color: 'var(--text-soft)' }}>Personaliza cómo te ven los pacientes en la plataforma.</p>
                         </header>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
-                            {/* Change Password */}
-                            <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
-                                <h3 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <ShieldAlert size={20} color="var(--primary)" /> Seguridad
-                                </h3>
-                                <form onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    setSaving(true);
-                                    const form = e.target as HTMLFormElement;
-                                    const pass = (form.elements.namedItem('new_password') as HTMLInputElement).value;
-                                    const conf = (form.elements.namedItem('confirm_password') as HTMLInputElement).value;
-
-                                    if (pass !== conf) {
-                                        alert("Las contraseñas no coinciden.");
-                                        setSaving(false);
-                                        return;
-                                    }
-
-                                    const { error } = await supabase.auth.updateUser({ password: pass });
-                                    if (error) alert("Error: " + error.message);
-                                    else {
-                                        alert("¡Contraseña Suprema actualizada! \nLa próxima vez usa esta clave para entrar.");
-                                        form.reset();
-                                    }
-                                    setSaving(false);
-                                }}>
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Nueva Contraseña Suprema</label>
-                                        <input name="new_password" type="password" required minLength={6} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                        <div className="glass-card" style={{ padding: '3rem', maxWidth: '800px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                
+                                <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', paddingBottom: '2rem', borderBottom: '1px solid #f1f3f5' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <img src={therapistInfo.image || "https://via.placeholder.com/120"} alt="Profile" style={{ width: '120px', height: '120px', borderRadius: '24px', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 8px 25px rgba(0,0,0,0.1)' }} />
                                     </div>
-                                    <div style={{ marginBottom: '2rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Confirmar Contraseña</label>
-                                        <input name="confirm_password" type="password" required minLength={6} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
+                                    <div>
+                                        <h2 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem 0' }}>{therapistInfo.name}</h2>
+                                        <p style={{ margin: 0, color: 'var(--text-soft)', fontSize: '0.95rem' }}>Las fotos de perfil se administran internamente. Contáctanos si deseas cambiarla.</p>
                                     </div>
-                                    <button disabled={saving} type="submit" className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                                        Actualizar Contraseña
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Visibilidad de Especialidad</label>
+                                        <input
+                                            type="text"
+                                            value={profile.title}
+                                            onChange={(e) => setProfile({ ...profile, title: e.target.value })}
+                                            placeholder="Ej. Psicólogo Clínico Especialista en Ansiedad"
+                                            className="clean-input"
+                                        />
+                                        <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-soft)' }}>Título visible debajo de tu nombre en las tarjetas.</p>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Precio de Sesión (CLP)</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)', fontWeight: 'bold' }}>$</span>
+                                            <input
+                                                type="text"
+                                                value={profile.price}
+                                                onChange={(e) => setProfile({ ...profile, price: e.target.value })}
+                                                placeholder="35000"
+                                                className="clean-input"
+                                                style={{ paddingLeft: '2rem' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Duración de Sesión</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)' }}><Clock size={16}/></span>
+                                            <input
+                                                type="text"
+                                                value={profile.duration}
+                                                onChange={(e) => setProfile({ ...profile, duration: e.target.value })}
+                                                placeholder="50 min"
+                                                className="clean-input"
+                                                style={{ paddingLeft: '2.5rem' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Especialista en resolver (Etiquetas separadas por comas)</label>
+                                        <input
+                                            type="text"
+                                            value={profile.tags}
+                                            onChange={(e) => setProfile({ ...profile, tags: e.target.value })}
+                                            placeholder="Ej. Ansiedad Severa, Mindfulness, Trastornos del Sueño"
+                                            className="clean-input"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Formación Base</label>
+                                        <input
+                                            type="text"
+                                            value={profile.education}
+                                            onChange={(e) => setProfile({ ...profile, education: e.target.value })}
+                                            placeholder="Ej. Harvard Medical School"
+                                            className="clean-input"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Impacto Clínico</label>
+                                        <input
+                                            type="text"
+                                            value={profile.impact}
+                                            onChange={(e) => setProfile({ ...profile, impact: e.target.value })}
+                                            placeholder="Ej. Más de 2.400+ procesos dirigidos"
+                                            className="clean-input"
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Frase Destacada (Cita personal)</label>
+                                        <textarea
+                                            value={profile.quote}
+                                            onChange={(e) => setProfile({ ...profile, quote: e.target.value })}
+                                            placeholder='"La claridad mental no es la ausencia de pensamientos..."'
+                                            className="clean-input"
+                                            rows={2}
+                                            style={{ resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Biografía y Enfoque</label>
+                                        <textarea
+                                            value={profile.bio}
+                                            onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                                            placeholder="Con más de 15 años de experiencia, mi enfoque se centra en..."
+                                            className="clean-input"
+                                            rows={4}
+                                            style={{ resize: 'vertical' }}
+                                        />
+                                    </div>
+                                    
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Mi Metodología</label>
+                                        <textarea
+                                            value={profile.methodology}
+                                            onChange={(e) => setProfile({ ...profile, methodology: e.target.value })}
+                                            placeholder="Trabajamos en identificar los patrones de pensamiento..."
+                                            className="clean-input"
+                                            rows={3}
+                                            style={{ resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1', paddingBottom: '1rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>Texto del Botón de Reserva</label>
+                                        <input
+                                            type="text"
+                                            value={profile.button_text}
+                                            onChange={(e) => setProfile({ ...profile, button_text: e.target.value })}
+                                            placeholder="Ej. Agendar Evaluación de Ingreso"
+                                            className="clean-input"
+                                            style={{ background: '#f8f9fa', borderColor: '#d1e7dd', fontWeight: 'bold', color: 'var(--primary)' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid #f1f3f5' }}>
+                                    <button className="premium-btn" onClick={saveProfile} disabled={isSavingProfile} style={{ padding: '0.9rem 2.5rem' }}>
+                                        <CheckCircle size={18} /> {isSavingProfile ? "Actualizando perfil..." : "Guardar Configuración"}
                                     </button>
-                                </form>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+                )}
 
-                            {/* Edit Public Profile */}
-                            <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '3rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                <h3 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <User size={20} color="var(--primary)" /> Perfil Público
-                                </h3>
-                                {terapeutaData ? (
-                                    <form onSubmit={async (e) => {
-                                        e.preventDefault();
-                                        setSaving(true);
-                                        const form = e.target as HTMLFormElement;
-
-                                        const tagsString = (form.elements.namedItem('tags') as HTMLInputElement).value;
-                                        const tagsArray = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-
-                                        const updates = {
-                                            title: (form.elements.namedItem('title') as HTMLInputElement).value,
-                                            price: (form.elements.namedItem('price') as HTMLInputElement).value,
-                                            specialty: (form.elements.namedItem('specialty') as HTMLInputElement).value,
-                                            bio: (form.elements.namedItem('bio') as HTMLTextAreaElement).value,
-                                            calendar_url: (form.elements.namedItem('calendar_url') as HTMLInputElement).value,
-                                            tags: tagsArray
-                                        };
-
-                                        const tId = localStorage.getItem('therapist_id');
-                                        const { error } = await supabase.from('terapeutas').update(updates).eq('id', parseInt(tId!));
-
-                                        if (error) alert("Error actualizando perfil: " + error.message);
-                                        else {
-                                            alert("¡Perfil público actualizado con éxito en /terapeutas!");
-                                            fetchTerapeutaData();
-                                        }
-                                        setSaving(false);
-                                    }}>
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Subtítulo Profesional</label>
-                                            <input name="title" defaultValue={terapeutaData?.title} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
-                                        </div>
-                                        <div style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                            <div>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Valor Consulta</label>
-                                                <input name="price" defaultValue={terapeutaData?.price} required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Tópicos Principales</label>
-                                                <input name="specialty" defaultValue={terapeutaData?.specialty} required placeholder="Ej: Ansiedad · Depresión" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
-                                            </div>
-                                        </div>
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Tags de Especialidad (Separados por coma)</label>
-                                            <input name="tags" defaultValue={Array.isArray(terapeutaData?.tags) ? terapeutaData.tags.join(', ') : terapeutaData?.tags} placeholder="Ansiedad, Autoestima, Adultos Jóvenes" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: '0.4rem' }}>Se mostrarán como píldoras en tu tarjeta de perfil.</p>
-                                        </div>
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Biografía Pública</label>
-                                            <textarea name="bio" defaultValue={terapeutaData?.bio} required rows={5} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', resize: 'vertical' }}></textarea>
-                                        </div>
-                                        <div style={{ marginBottom: '2rem' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Link de Agenda Externa (Calendly, etc.)</label>
-                                            <input name="calendar_url" defaultValue={terapeutaData?.calendar_url} placeholder="https://calendly.com/tu-usuario" style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }} />
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: '0.4rem' }}>Este link se mostrará al paciente en la página de confirmación.</p>
-                                        </div>
-                                        <button disabled={saving} type="submit" className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                                            {saving ? "Guardando..." : "Guardar Cambios Públicos"}
-                                        </button>
-                                    </form>
-                                ) : perfilError ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                                        <p style={{ color: '#dc3545', marginBottom: '1rem' }}>⚠️ No se encontraron datos de perfil en Supabase.</p>
-                                        <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                                            Es posible que tu email aún no esté en la tabla de terapeutas.<br />
-                                            Contacta al administrador para que registre tu perfil.
-                                        </p>
-                                        <button onClick={fetchTerapeutaData} className="secondary-btn">Reintentar</button>
+                {/* Patient Editor Modal */}
+                {editingLead && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }}>
+                        <div className="glass-card animate-fade" style={{ width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '0' }}>
+                            <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid #f1f3f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfaf7' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.4rem', margin: '0 0 0.3rem 0', color: 'var(--primary)' }}>Expediente Clínico</h2>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-soft)' }}>Información privada del paciente.</p>
+                                </div>
+                                <button onClick={() => setEditingLead(null)} style={{ background: '#fff', border: '1px solid #eee', cursor: 'pointer', color: 'var(--text-soft)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }} onMouseOver={e => e.currentTarget.style.color = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-soft)'}><X size={20} /></button>
+                            </div>
+                            
+                            <div style={{ padding: '2.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>Nombre completo</label>
+                                        <input type="text" value={editingLead.name} disabled className="clean-input" style={{ backgroundColor: '#f1f3f5', opacity: 0.8, cursor: 'not-allowed' }} />
                                     </div>
-                                ) : (
-                                    <p style={{ textAlign: 'center', color: 'var(--text-soft)', padding: '2rem 0' }}>Cargando datos de perfil...</p>
-                                )}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>RUT o Identificación</label>
+                                        <input type="text" value={editingLead.rut || ''} onChange={e => setEditingLead({...editingLead, rut: e.target.value})} placeholder="Ej. 12.345.678-9" className="clean-input" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>Correo Electrónico <span style={{ color: '#dc2626' }}>*</span></label>
+                                        <input type="email" value={editingLead.email || ''} onChange={e => setEditingLead({...editingLead, email: e.target.value})} placeholder="Ej. correo@ejemplo.com" className="clean-input" style={{ border: !editingLead.email ? '1px solid #fca5a5' : undefined }} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>Dirección / Localidad</label>
+                                        <input type="text" value={editingLead.address || ''} onChange={e => setEditingLead({...editingLead, address: e.target.value})} placeholder="Comuna, Región..." className="clean-input" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>Motivo de Consulta (Temática)</label>
+                                        <input type="text" value={editingLead.theme || ''} onChange={e => setEditingLead({...editingLead, theme: e.target.value})} placeholder="Ej. Ansiedad Generalizada, Terapia de pareja..." className="clean-input" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-soft)', textTransform: 'uppercase' }}>Notas y Observaciones Clínicas</label>
+                                        <textarea value={editingLead.observations || ''} onChange={e => setEditingLead({...editingLead, observations: e.target.value})} rows={6} placeholder="Registro de evolución, consideraciones especiales..." className="clean-input" style={{ resize: 'vertical' }}></textarea>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f3f5' }}>
+                                    <button onClick={() => setEditingLead(null)} className="secondary-btn" style={{ padding: '0.8rem 1.5rem' }}>Cancelar</button>
+                                    <button onClick={() => handleSaveLeadDetails(editingLead)} className="premium-btn" style={{ padding: '0.8rem 2rem' }}>Guardar Expediente</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Missing Email Alert Modal */}
+                {missingEmailAlert.show && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
+                        <div className="glass-card animate-fade" style={{ width: '100%', maxWidth: '450px', padding: '0', textAlign: 'center', overflow: 'hidden' }}>
+                            <div style={{ backgroundColor: '#fee2e2', padding: '2rem', borderBottom: '1px solid #fca5a5' }}>
+                                <AlertCircle size={64} color="#dc2626" style={{ margin: '0 auto 1rem' }} />
+                                <h2 style={{ color: '#991b1b', margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Correo Faltante</h2>
+                            </div>
+                            <div style={{ padding: '2rem' }}>
+                                <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                    Es <strong>ESTRICTAMENTE NECESARIO</strong> incluir un correo electrónico antes de convertir un lead a <strong>Paciente Activo</strong>.
+                                </p>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-soft)', marginBottom: '2rem' }}>
+                                    El correo es vital para enviarle comprobantes o boletas, enlaces de su portal privado y las comunicaciones de ingreso.
+                                </p>
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                    <button onClick={() => setMissingEmailAlert({ show: false, leadId: null })} className="secondary-btn" style={{ padding: '0.8rem 1.5rem', width: '100%' }}>Entendido</button>
+                                    <button onClick={() => {
+                                        const lead = leads.find(l => l.id === missingEmailAlert.leadId);
+                                        setMissingEmailAlert({ show: false, leadId: null });
+                                        if (lead) setEditingLead(lead);
+                                    }} className="premium-btn" style={{ padding: '0.8rem 1.5rem', width: '100%', backgroundColor: '#dc2626', color: '#fff', border: 'none' }}>Agregar Correo</button>
+                                </div>
                             </div>
                         </div>
                     </div>

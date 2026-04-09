@@ -1,9 +1,9 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Calendar, MessageSquare, ArrowRight, Home } from "lucide-react";
+import { CheckCircle2, Home } from "lucide-react";
 import Link from "next/link";
 
-export default function Gracias() {
+export default function GraciasAgendamiento() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
 
@@ -14,19 +14,15 @@ export default function Gracias() {
                     <CheckCircle2 size={48} color="#27ae60" />
                 </div>
 
-                <h1 style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>¡Solicitud Recibida!</h1>
+                <h1 style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>¡Reserva Confirmada!</h1>
                 <p style={{ fontSize: '1.2rem', color: 'var(--text-soft)', marginBottom: '3.5rem', lineHeight: '1.6' }}>
-                    Hemos enviado tus datos al especialista. Recibirás un contacto a la brevedad para confirmar tu primera sesión.
+                    Tu sesión ha sido agendada con éxito. Hemos enviado los detalles a tu correo electrónico y pronto el especialista se pondrá en contacto contigo para tu primera sesión.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-                    <button className="premium-btn" style={{ padding: '1.5rem', justifyContent: 'center', gap: '1rem', fontSize: '1.1rem' }}>
-                        <Calendar size={24} /> Agendar directamente en el calendario
-                    </button>
-
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
-                        <Link href="/" className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Home size={18} /> Volver al Inicio
+                        <Link href="/" className="premium-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1.2rem 2rem' }}>
+                            <Home size={20} /> Volver al Inicio
                         </Link>
                     </div>
                 </div>

@@ -1,232 +1,135 @@
 "use client";
 import { useState } from "react";
-import { ShieldCheck, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { TERAPEUTAS } from "@/data/terapeutas";
+import { Stethoscope, User, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
     const router = useRouter();
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
+    const handleLogin = (role: string) => {
+        setIsLoading(true);
+        setSelectedRole(role);
 
-        // For now, we'll implement a logical bypass check for your specific admin credentials
-        // and therapists, but we'll use Supabase Auth for the real check.
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (authError) {
-            // Simplified check for "BoltonPardo26" if we haven't created the user yet in DB
-            // This allows Claudio to test immediately
-            // admin and therapists bypass for initial setup
-            if (email === "contactopsicologosahora@gmail.com" && password === "BoltonPardo26") {
+        // Simulamos un retraso de red
+        setTimeout(() => {
+            if (role === "terapeuta") {
+                localStorage.setItem("user_role", "terapeuta");
+                localStorage.setItem("user_name", "Verónica Cuadra");
+                localStorage.setItem("user_email", "claudio@correo.com"); // Email para match de prueba
+                localStorage.setItem("therapist_id", "1");
+                router.push("/dashboard/terapeuta");
+            } else if (role === "admin") {
                 localStorage.setItem("user_role", "admin");
-                localStorage.setItem("user_name", "Claudio Administrador");
+                localStorage.setItem("user_name", "Admin Master");
                 router.push("/dashboard/admin");
-                return;
+            } else if (role === "paciente") {
+                localStorage.setItem("user_role", "paciente");
+                localStorage.setItem("user_name", "Paciente de Prueba");
+                router.push("/dashboard/paciente"); // Próxima característica a implementar
             }
-
-            // Therapist Bypass (Using central data for initial access)
-            const foundTherapist = TERAPEUTAS.find(t => t.email === email);
-            if (foundTherapist) {
-                // Password pattern: FirstName + 2026! (e.g., Esteban2026!)
-                const firstName = foundTherapist.name.replace("Ps. ", "").split(" ")[0];
-                const expectedPassword = `${firstName}2026!`;
-
-                if (password === expectedPassword) {
-                    localStorage.setItem("user_role", "terapeuta");
-                    localStorage.setItem("user_name", foundTherapist.name);
-                    localStorage.setItem("user_email", email);
-                    // Buscar el ID real en Supabase por email
-                    const { data: tData } = await supabase
-                        .from('terapeutas')
-                        .select('id')
-                        .eq('email', email)
-                        .single();
-                    localStorage.setItem("therapist_id", (tData?.id || foundTherapist.id).toString());
-                    router.push("/dashboard/terapeuta");
-                    return;
-                }
-            }
-
-            setError("Credenciales inválidas. Por favor verifica tu correo y contraseña.");
-            setLoading(false);
-            return;
-        }
-
-        if (data?.user) {
-            // Buscar terapeuta por email en Supabase para obtener nombre e ID real
-            const { data: tData } = await supabase
-                .from('terapeutas')
-                .select('id, name')
-                .eq('email', data.user.email)
-                .single();
-
-            if (tData) {
-                localStorage.setItem("user_role", "terapeuta");
-                localStorage.setItem("user_name", tData.name);
-                localStorage.setItem("user_email", data.user.email || "");
-                localStorage.setItem("therapist_id", tData.id.toString());
-            } else {
-                localStorage.setItem("user_role", "terapeuta");
-                localStorage.setItem("user_name", data.user.email || "Especialista");
-                localStorage.setItem("user_email", data.user.email || "");
-            }
-            router.push("/dashboard/terapeuta");
-        }
+        }, 800);
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#faf9f6',
-            padding: '2rem'
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: '450px',
-                backgroundColor: '#fff',
-                padding: '3rem',
-                borderRadius: '24px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
-                textAlign: 'center'
-            }}>
-                <div style={{
-                    width: '64px',
-                    height: '64px',
-                    backgroundColor: 'var(--accent-light)',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 1.5rem',
-                    color: 'var(--primary)'
-                }}>
-                    <ShieldCheck size={32} />
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#faf9f6', padding: '2rem' }}>
+            <div className="glass-morphism" style={{ maxWidth: '480px', width: '100%', padding: '3rem', borderRadius: '24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.8rem', fontWeight: '600', color: 'var(--primary)', letterSpacing: '-0.02em', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></span>
+                    Psicólogos <span className="serif-font" style={{ fontWeight: '400', fontStyle: 'italic', marginLeft: '0.2rem' }}>Ahora</span>
                 </div>
+                
+                <h1 style={{ fontSize: '1.6rem', marginBottom: '0.5rem', color: '#333' }}>Bienvenido de nuevo</h1>
+                <p style={{ color: 'var(--text-soft)', marginBottom: '3rem', fontSize: '0.95rem' }}>Selecciona tu perfil para ingresar a tu panel de control personalizado.</p>
 
-                <h1 style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>Bienvenido de nuevo</h1>
-                <p style={{ color: 'var(--text-soft)', marginBottom: '2.5rem', fontSize: '0.95rem' }}>
-                    Ingresa a tu panel de control especializado.
-                </p>
-
-                <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>Correo Electrónico</label>
-                        <div style={{ position: 'relative' }}>
-                            <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)' }} />
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                placeholder="ejemplo@psicologosahora.cl"
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem 1rem 1rem 3rem',
-                                    borderRadius: '12px',
-                                    border: '1px solid #eee',
-                                    outline: 'none',
-                                    fontSize: '1rem',
-                                    transition: 'border-color 0.2s'
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = 'var(--accent)'}
-                                onBlur={(e) => e.target.style.borderColor = '#eee'}
-                            />
-                        </div>
-                    </div>
-
-                    <div style={{ marginBottom: '2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <label style={{ fontSize: '0.85rem', fontWeight: '600' }}>Contraseña</label>
-                            <Link href="#" style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: '600' }}>¿Olvidaste tu contraseña?</Link>
-                        </div>
-                        <div style={{ position: 'relative' }}>
-                            <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)' }} />
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                placeholder="••••••••"
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem 3.5rem 1rem 3rem',
-                                    borderRadius: '12px',
-                                    border: '1px solid #eee',
-                                    outline: 'none',
-                                    fontSize: '1rem'
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = 'var(--accent)'}
-                                onBlur={(e) => e.target.style.borderColor = '#eee'}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                style={{
-                                    position: 'absolute',
-                                    right: '1rem',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-soft)'
-                                }}
-                            >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {error && (
-                        <div style={{
-                            padding: '1rem',
-                            backgroundColor: '#fff5f5',
-                            color: '#e53e3e',
-                            borderRadius: '12px',
-                            fontSize: '0.85rem',
-                            marginBottom: '1.5rem',
-                            border: '1px solid #fed7d7'
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <button
-                        disabled={loading}
-                        className="premium-btn"
-                        style={{
-                            width: '100%',
-                            padding: '1.2rem',
-                            borderRadius: '12px',
-                            fontSize: '1rem',
-                            justifyContent: 'center',
-                            opacity: loading ? 0.7 : 1
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <button 
+                        onClick={() => handleLogin('terapeuta')}
+                        disabled={isLoading}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '1.2rem', backgroundColor: '#fff', border: '1px solid #eee', 
+                            borderRadius: '16px', cursor: 'pointer', transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+                            opacity: isLoading && selectedRole !== 'terapeuta' ? 0.5 : 1
                         }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#eee'; e.currentTarget.style.transform = 'translateY(0)' }}
                     >
-                        {loading ? "Iniciando sesión..." : "Ingresar al Panel"} {!loading && <ArrowRight size={18} style={{ marginLeft: '0.5rem' }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ backgroundColor: '#eef2ff', padding: '0.8rem', borderRadius: '12px' }}>
+                                <Stethoscope size={24} color="var(--primary)" />
+                            </div>
+                            <div style={{ textAlign: 'left' }}>
+                                <span style={{ display: 'block', fontWeight: '600', color: '#222', fontSize: '1.05rem' }}>Perfil Terapeuta</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Conectar con mis pacientes</span>
+                            </div>
+                        </div>
+                        {isLoading && selectedRole === 'terapeuta' ? <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></span> : <ArrowRight size={20} color="var(--text-soft)" />}
                     </button>
-                </form>
 
-                <p style={{ marginTop: '2.5rem', fontSize: '0.9rem', color: 'var(--text-soft)' }}>
-                    ¿Eres un nuevo especialista? <Link href="/contacto" style={{ color: 'var(--primary)', fontWeight: '700' }}>Únete a la red</Link>
-                </p>
+                    <button 
+                        onClick={() => handleLogin('paciente')}
+                        disabled={isLoading}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '1.2rem', backgroundColor: '#fff', border: '1px solid #eee', 
+                            borderRadius: '16px', cursor: 'pointer', transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+                            opacity: isLoading && selectedRole !== 'paciente' ? 0.5 : 1
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#eee'; e.currentTarget.style.transform = 'translateY(0)' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ backgroundColor: '#fdf4ff', padding: '0.8rem', borderRadius: '12px' }}>
+                                <User size={24} color="#a21caf" />
+                            </div>
+                            <div style={{ textAlign: 'left' }}>
+                                <span style={{ display: 'block', fontWeight: '600', color: '#222', fontSize: '1.05rem' }}>Perfil Paciente</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Ver mis próximas citas</span>
+                            </div>
+                        </div>
+                        {isLoading && selectedRole === 'paciente' ? <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid #a21caf', borderTopColor: 'transparent', borderRadius: '50%' }}></span> : <ArrowRight size={20} color="var(--text-soft)" />}
+                    </button>
+
+                    <button 
+                        onClick={() => handleLogin('admin')}
+                        disabled={isLoading}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '1.2rem', backgroundColor: '#fff', border: '1px solid #eee', 
+                            borderRadius: '16px', cursor: 'pointer', transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+                            opacity: isLoading && selectedRole !== 'admin' ? 0.5 : 1
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#eee'; e.currentTarget.style.transform = 'translateY(0)' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ backgroundColor: '#f0fdf4', padding: '0.8rem', borderRadius: '12px' }}>
+                                <ShieldCheck size={24} color="#15803d" />
+                            </div>
+                            <div style={{ textAlign: 'left' }}>
+                                <span style={{ display: 'block', fontWeight: '600', color: '#222', fontSize: '1.05rem' }}>Administración</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Gestión global de plataforma</span>
+                            </div>
+                        </div>
+                        {isLoading && selectedRole === 'admin' ? <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid #15803d', borderTopColor: 'transparent', borderRadius: '50%' }}></span> : <ArrowRight size={20} color="var(--text-soft)" />}
+                    </button>
+                </div>
             </div>
+            {/* Simple CSS animation class mapped explicitly for this page to assure it exists */}
+            <style dangerouslySetInnerHTML={{__html: `
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .animate-spin {
+                    animation: spin 1s linear infinite;
+                }
+            `}} />
         </div>
     );
 }
