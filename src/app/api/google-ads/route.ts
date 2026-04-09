@@ -62,14 +62,14 @@ export async function GET(request: Request) {
             });
         }
 
-        const metrics = response[0].metrics;
+        const metrics = response[0]?.metrics || {};
 
         // Limpiar los datos (cost_micros a formato moneda estándar, etc.)
-        const impressions = parseInt(metrics.impressions) || 0;
-        const clicks = parseInt(metrics.clicks) || 0;
-        const cost = (parseInt(metrics.cost_micros) || 0) / 1000000;
-        const cpc = (parseInt(metrics.average_cpc) || 0) / 1000000;
-        const costPerConversion = (parseInt(metrics.cost_per_conversion) || 0) / 1000000;
+        const impressions = parseInt(metrics.impressions as any) || 0;
+        const clicks = parseInt(metrics.clicks as any) || 0;
+        const cost = (parseInt(metrics.cost_micros as any) || 0) / 1000000;
+        const cpc = (parseInt(metrics.average_cpc as any) || 0) / 1000000;
+        const costPerConversion = (parseInt(metrics.cost_per_conversion as any) || 0) / 1000000;
 
         return NextResponse.json({
             impressions,
