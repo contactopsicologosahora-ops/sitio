@@ -155,7 +155,6 @@ export default function TherapistDashboard() {
     }, []);
 
     const fetchTherapistInfo = async (email: string) => {
-        setIsLoadingLeads(true);
         try {
             const result = await getTherapistInfoAction(email);
             if (result.success && result.data) {
@@ -183,8 +182,6 @@ export default function TherapistDashboard() {
             }
         } catch (error) {
             console.error("Error fetching therapist info:", error);
-        } finally {
-            setIsLoadingLeads(false);
         }
     };
 
