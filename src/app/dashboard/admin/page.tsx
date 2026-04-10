@@ -29,7 +29,7 @@ export default function AdminDashboard() {
     const [loadingMetrics, setLoadingMetrics] = useState(false);
     
     // Tab State
-    const [activeTab, setActiveTab] = useState<'metrics' | 'funnel'>('metrics');
+    const [activeTab, setActiveTab] = useState<'metrics' | 'funnel' | 'announcements'>('metrics');
 
     // Funnel State
     const [funnelStages, setFunnelStages] = useState(DEFAULT_FUNNEL_STAGES);
@@ -39,6 +39,41 @@ export default function AdminDashboard() {
     // Google Ads State
     const [dateRange, setDateRange] = useState('last_30_days');
     const [loadingAds, setLoadingAds] = useState(false);
+
+    // Announcements State
+    const [announceTitle, setAnnounceTitle] = useState("");
+    const [announceContent, setAnnounceContent] = useState("");
+    const [announceSendEmail, setAnnounceSendEmail] = useState(false);
+    const [announceLoading, setAnnounceLoading] = useState(false);
+    const [announceSuccess, setAnnounceSuccess] = useState("");
+
+    const submitAnnouncement = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!announceTitle || !announceContent) return;
+        setAnnounceLoading(true);
+        setAnnounceSuccess("");
+        try {
+            const res = await fetch('/api/announcements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: announceTitle, content: announceContent, sendEmail: announceSendEmail })
+            });
+            if (res.ok) {
+                setAnnounceSuccess("¡Comunicado publicado exitosamente!");
+                setAnnounceTitle("");
+                setAnnounceContent("");
+                setAnnounceSendEmail(false);
+                setTimeout(() => setAnnounceSuccess(""), 4000);
+            } else {
+                alert("Error al publicar el comunicado.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error de red.");
+        } finally {
+            setAnnounceLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (authorized) {
@@ -264,6 +299,17 @@ export default function AdminDashboard() {
                         }}
                     >
                         <Activity size={18} /> Estructura de Embudo
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('announcements')} 
+                        style={{ 
+                            padding: '0.75rem 1.5rem', borderRadius: '50px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.3s',
+                            backgroundColor: activeTab === 'announcements' ? 'var(--primary)' : 'rgba(0,0,0,0.05)',
+                            color: activeTab === 'announcements' ? 'white' : 'var(--text-soft)'
+                        }}
+                    >
+                        <Megaphone size={18} /> Comunicados
                     </button>
                 </div>
             </header>
@@ -524,6 +570,69 @@ export default function AdminDashboard() {
                                 Documento Interno Privado · Psicólogos Ahora © {new Date().getFullYear()} · Actualizado en tiempo real {dateRange !== 'today' ? `(Filtro: ${dateRange.replace(/_/g, ' ')})` : ''}
                             </div>
 
+                        </div>
+                    </div>
+                )}
+
+                {/* -------------------- TAB: COMUNICADOS -------------------- */}
+                {activeTab === 'announcements' && (
+                    <div className="animate-fade">
+                        <div style={{ background: 'white', borderRadius: '24px', padding: '2rem', boxShadow: 'var(--shadow-md)', maxWidth: '800px', margin: '0 auto' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                                <div style={{ width: 48, height: 48, background: 'rgba(26, 111, 186, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Megaphone size={24} color="#1a6fba" />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.4rem' }}>Enviar Comunicado</h3>
+                                    <p style={{ margin: 0, color: 'var(--text-soft)', fontSize: '0.95rem' }}>Escribe noticias, avisos o normativas para todos los especialistas (Aparecerá en su portal).</p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={submitAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.5rem' }}>Título del Comunicado</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ej: Nueva Política de Cierre Mensual, Actualización de Precios, etc."
+                                        value={announceTitle}
+                                        onChange={(e) => setAnnounceTitle(e.target.value)}
+                                        required
+                                        style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #eaeaea', fontSize: '1rem', outline: 'none' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.5rem' }}>Cuerpo del Mensaje</label>
+                                    <textarea 
+                                        placeholder="Escribe el mensaje detallado aquí... Puedes usar múltiples párrafos."
+                                        value={announceContent}
+                                        onChange={(e) => setAnnounceContent(e.target.value)}
+                                        required
+                                        rows={8}
+                                        style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #eaeaea', fontSize: '1rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                    />
+                                </div>
+                                <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="sendEmailCheck"
+                                        checked={announceSendEmail}
+                                        onChange={(e) => setAnnounceSendEmail(e.target.checked)}
+                                        style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
+                                    />
+                                    <label htmlFor="sendEmailCheck" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '1rem' }}>Enviar también como correo electrónico</span>
+                                        <span style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>Todos los terapeutas recibirán esto en su bandeja de entrada (Html premium).</span>
+                                    </label>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
+                                    {announceSuccess && <span style={{ color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle size={18} /> {announceSuccess}</span>}
+                                    <button disabled={announceLoading} className="premium-btn" style={{ padding: '1rem 2rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: announceLoading ? 0.7 : 1 }}>
+                                        {announceLoading ? <Loader2 className="animate-spin" size={20} /> : <Megaphone size={20} />} 
+                                        {announceLoading ? 'Publicando...' : 'Publicar Comunicado'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}

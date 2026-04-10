@@ -18,6 +18,7 @@ export default function TherapistDashboard() {
     const [editingLead, setEditingLead] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [missingEmailAlert, setMissingEmailAlert] = useState<{show: boolean, leadId: number | null}>({ show: false, leadId: null });
+    const [announcements, setAnnouncements] = useState<any[]>([]);
 
     const [isAddingPatient, setIsAddingPatient] = useState(false);
     const [newPatient, setNewPatient] = useState({ name: '', email: '', phone: '', status: 'Paciente' });
@@ -171,6 +172,7 @@ export default function TherapistDashboard() {
                 fetchAvailability(data.id);
                 fetchGoogleStatus(data.id);
                 fetchPendingPayments(data.id);
+                fetchAnnouncements();
             } else {
                 console.error("No therapist found for email", email);
             }
@@ -226,6 +228,18 @@ export default function TherapistDashboard() {
             if (data && !error) setPendingPayments(data);
         } catch (error) {
             console.error("Error fetching payments:", error);
+        }
+    };
+
+    const fetchAnnouncements = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('announcements')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (data && !error) setAnnouncements(data);
+        } catch (error) {
+            console.error("Error fetching announcements:", error);
         }
     };
 
@@ -361,6 +375,9 @@ export default function TherapistDashboard() {
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem', paddingLeft: '0.5rem' }}>Gestión</span>
                     
+                    <button onClick={() => setActiveTab("noticias")} className={`dash-nav-btn ${activeTab === "noticias" ? "active" : ""}`}>
+                        <AlertCircle size={18} /> Tablón de Avisos
+                    </button>
                     <button onClick={() => setActiveTab("pacientes")} className={`dash-nav-btn ${activeTab === "pacientes" ? "active" : ""}`}>
                         <Users size={18} /> CRM Pacientes
                     </button>
@@ -595,6 +612,39 @@ export default function TherapistDashboard() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === "noticias" && (
+                    <div className="animate-fade">
+                        <header style={{ marginBottom: '2.5rem' }}>
+                            <h1 className="serif-font" style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>Tablón de Avisos</h1>
+                            <p style={{ color: 'var(--text-soft)' }}>Noticias, comunicados y normativas desde administración.</p>
+                        </header>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '800px' }}>
+                            {announcements.length === 0 ? (
+                                <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
+                                    <AlertCircle size={40} style={{ color: 'var(--text-soft)', marginBottom: '1rem', opacity: 0.5 }} />
+                                    <h3 style={{ color: 'var(--text-main)', margin: '0 0 0.5rem 0' }}>Todo al día</h3>
+                                    <p style={{ color: 'var(--text-soft)', margin: 0 }}>No hay comunicados recientes.</p>
+                                </div>
+                            ) : (
+                                announcements.map(ann => (
+                                    <div key={ann.id} className="glass-card" style={{ padding: '2rem', borderLeft: '4px solid var(--primary)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                            <h2 style={{ fontSize: '1.4rem', margin: 0, color: 'var(--primary)' }}>{ann.title}</h2>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)', background: 'var(--bg-serene)', padding: '0.3rem 0.6rem', borderRadius: '50px' }}>
+                                                {new Date(ann.created_at).toLocaleDateString('es-CL')}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                                            {ann.content}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 )}
 
