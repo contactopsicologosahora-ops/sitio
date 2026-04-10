@@ -166,7 +166,8 @@ export async function POST(request: Request) {
         const emailHtml = buildAnnouncementEmail(title, content);
 
         const { error: resendError } = await resend.emails.send({
-          from: 'Psicólogos Ahora <hola@psicologosahora.cl>', 
+          from: 'Psicólogos Ahora <hola@psicologosahora.cl>',
+          to: 'hola@psicologosahora.cl',
           bcc: emailsList,
           subject: title,
           html: emailHtml
