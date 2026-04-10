@@ -171,27 +171,20 @@ export async function POST(request: Request) {
         // Generar el HTML Premium
         const emailHtml = buildAnnouncementEmail(title, content);
 
-        // Crear una promesa por cada email para que lleguen individuales (No en Bcc)
-        const emailPromises = emailsList.map(email => 
-          resend.emails.send({
-            from: 'Psicólogos Ahora <hola@psicologosahora.cl>',
-            to: email, // <--- Cada terapeuta recibe el correo con SU propio nombre/email en el "Para"
-            subject: title,
-            html: emailHtml
-          })
-        );
+        // En lugar de enviar concurrente y chocar con el "Rate Limit" (5 req/s), usamos la API de Lotes (Batch)
+        const emailPayloads = emailsList.map(email => ({
+          from: 'Psicólogos Ahora <hola@psicologosahora.cl>',
+          to: email, // Cada terapeuta recibe el correo como "Para"
+          subject: title,
+          html: emailHtml
+        }));
 
-        // Esperar a que se envíen todos
-        const results = await Promise.all(emailPromises);
+        // Enviar todos en una sola llamada de red (Bulk Send)
+        const { data: batchData, error: batchError } = await resend.batch.send(emailPayloads);
         
-        // Verificar si alguno falló (Para reportar al admin)
-        const failedSends = results.filter(r => r.error);
-        
-        if (failedSends.length > 0) {
-          console.error("Resend Errors (Individuales):", failedSends);
-          const errorMessage = failedSends[0].error?.message || 'Error desconocido en Resend';
-          // Se guardó en DB, pero fallaron correos. Es crucial devolver el mensaje de Resend.
-          return NextResponse.json({ error: `Comunicado guardado, pero fallaron ${failedSends.length} correos. Error técnico: ${errorMessage}` }, { status: 500 });
+        if (batchError) {
+          console.error("Resend Batch Errors:", batchError);
+          return NextResponse.json({ error: `Comunicado guardado, pero falló envío general. Error técnico: ${batchError.message}` }, { status: 500 });
         }
       }
     }
