@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
 // Inicializar Resend
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy_key');
+
+// Inicializar cliente Supabase Admin para evadir RLS en backend
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 // HTML Template Builder
 function buildAnnouncementEmail(title: string, content: string) {
@@ -126,8 +132,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Título y contenido son requeridos.' }, { status: 400 });
     }
 
-    // 1. Guardar en Supabase
-    const { data: insertData, error: dbError } = await supabase
+    // 1. Guardar en Supabase usando el Service Role (Super Admin Bypass RLS)
+    const { data: insertData, error: dbError } = await supabaseAdmin
       .from('announcements')
       .insert([
         { 
@@ -141,13 +147,13 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error('Error insertando anuncio en DB:', dbError);
-      return NextResponse.json({ error: 'Error al guardar el comunicado.' }, { status: 500 });
+      return NextResponse.json({ error: 'Error al guardar el comunicado. ' + dbError.message }, { status: 500 });
     }
 
     // 2. Si sendEmail es true, enviamos correos masivos
     if (sendEmail) {
-      // Traer todos los terapeutas
-      const { data: terapeutas, error: getTherapistsError } = await supabase
+      // Traer todos los terapeutas usando el Service Role
+      const { data: terapeutas, error: getTherapistsError } = await supabaseAdmin
         .from('terapeutas')
         .select('email, name');
 
