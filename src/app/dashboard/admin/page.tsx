@@ -46,6 +46,10 @@ export default function AdminDashboard() {
     const [announceSendEmail, setAnnounceSendEmail] = useState(false);
     const [announceLoading, setAnnounceLoading] = useState(false);
     const [announceSuccess, setAnnounceSuccess] = useState("");
+    
+    // Announcement History State
+    const [announcementHistory, setAnnouncementHistory] = useState<any[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     const submitAnnouncement = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -63,6 +67,7 @@ export default function AdminDashboard() {
                 setAnnounceTitle("");
                 setAnnounceContent("");
                 setAnnounceSendEmail(false);
+                fetchAnnouncementHistory();
                 setTimeout(() => setAnnounceSuccess(""), 4000);
             } else {
                 const errData = await res.json().catch(() => null);
@@ -99,6 +104,34 @@ export default function AdminDashboard() {
             fetchGoogleAdsData();
         }
     }, [authorized, activeTab, dateRange]);
+
+    // Fetch Announcements history 
+    useEffect(() => {
+        if (authorized && activeTab === 'announcements') {
+            fetchAnnouncementHistory();
+        }
+    }, [authorized, activeTab]);
+
+    const fetchAnnouncementHistory = async () => {
+        setLoadingHistory(true);
+        try {
+            const { data, error } = await supabase
+                .from('announcements')
+                .select(`
+                    id, title, content, created_at,
+                    therapist_announcements(therapist_id, is_read)
+                `)
+                .order('created_at', { ascending: false });
+            
+            if (data && !error) {
+                setAnnouncementHistory(data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
 
     const fetchGoogleAdsData = async () => {
         setLoadingAds(true);
@@ -634,6 +667,64 @@ export default function AdminDashboard() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+
+                        {/* Historial de Comunicados */}
+                        <div style={{ background: 'white', borderRadius: '24px', padding: '2rem', boxShadow: 'var(--shadow-md)', maxWidth: '800px', margin: '2rem auto 4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                                <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.4rem' }}>Historial y Lecturas</h3>
+                                <button onClick={fetchAnnouncementHistory} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <Activity size={16} /> Refrescar
+                                </button>
+                            </div>
+                            
+                            {loadingHistory ? (
+                                <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 className="animate-spin" size={32} color="var(--primary)" /></div>
+                            ) : announcementHistory.length === 0 ? (
+                                <p style={{ color: 'var(--text-soft)', textAlign: 'center' }}>No hay comunicados publicados.</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {announcementHistory.map(ann => {
+                                        const readStatus = ann.therapist_announcements || [];
+                                        // Encontramos los ids que leyeron este aviso:
+                                        const readTherapistIds = readStatus.filter((s:any) => s.is_read).map((s:any) => s.therapist_id);
+                                        
+                                        // Mapeamos los IDs a objetos de terapeutas:
+                                        const readTherapists = terapeutas.filter(t => readTherapistIds.includes(t.id));
+                                        
+                                        return (
+                                            <div key={ann.id} style={{ border: '1px solid #eaeaea', borderRadius: '16px', padding: '1.5rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>{ann.title}</h4>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)', whiteSpace: 'nowrap' }}>
+                                                        {new Date(ann.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '1rem' }}>
+                                                    {ann.content.substring(0, 100)}...
+                                                </p>
+                                                
+                                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
+                                                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                        <CheckCircle size={14} /> Leído por ({readTherapists.length}):
+                                                    </p>
+                                                    {readTherapists.length > 0 ? (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                            {readTherapists.map(t => (
+                                                                <span key={t.id} style={{ fontSize: '0.75rem', background: '#e1f5fe', color: '#0288d1', padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
+                                                                    {t.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-soft)', fontStyle: 'italic' }}>Ningún terapeuta ha marcado este aviso como leído.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

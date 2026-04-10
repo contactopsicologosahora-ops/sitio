@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, CheckCircle, XCircle, Edit2, Award, X, Search, Mail, Phone, MapPin, Activity, DollarSign, AlertCircle, LogOut, ChevronRight, Video, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { updateLeadStatusAction, matchPaymentAction, saveProfileAction } from "./actions";
+import { updateLeadStatusAction, matchPaymentAction, saveProfileAction, markAnnouncementReadAction, hideAnnouncementAction } from "./actions";
 
 export default function TherapistDashboard() {
     const [session, setSession] = useState<any>(null);
@@ -19,6 +19,7 @@ export default function TherapistDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [missingEmailAlert, setMissingEmailAlert] = useState<{show: boolean, leadId: number | null}>({ show: false, leadId: null });
     const [announcements, setAnnouncements] = useState<any[]>([]);
+    const [isUpdatingAnnouncement, setIsUpdatingAnnouncement] = useState<Record<string, boolean>>({});
 
     const [isAddingPatient, setIsAddingPatient] = useState(false);
     const [newPatient, setNewPatient] = useState({ name: '', email: '', phone: '', status: 'Paciente' });
@@ -172,7 +173,7 @@ export default function TherapistDashboard() {
                 fetchAvailability(data.id);
                 fetchGoogleStatus(data.id);
                 fetchPendingPayments(data.id);
-                fetchAnnouncements();
+                fetchAnnouncements(data.id);
             } else {
                 console.error("No therapist found for email", email);
             }
@@ -231,15 +232,51 @@ export default function TherapistDashboard() {
         }
     };
 
-    const fetchAnnouncements = async () => {
+    const fetchAnnouncements = async (tId: number) => {
         try {
             const { data, error } = await supabase
                 .from('announcements')
-                .select('*')
+                .select(`
+                    *,
+                    therapist_announcements(is_read, is_hidden, therapist_id)
+                `)
                 .order('created_at', { ascending: false });
-            if (data && !error) setAnnouncements(data);
+            if (data && !error) {
+                const mappedAnnouncements = data.map((ann: any) => {
+                    const status = ann.therapist_announcements?.find((s: any) => s.therapist_id === tId) || {};
+                    return { ...ann, is_read: status.is_read || false, is_hidden: status.is_hidden || false };
+                }).filter((ann: any) => !ann.is_hidden);
+                setAnnouncements(mappedAnnouncements);
+            }
         } catch (error) {
             console.error("Error fetching announcements:", error);
+        }
+    };
+
+    const handleMarkAnnouncementAsRead = async (announcementId: string) => {
+        if (!session || !therapistInfo) return;
+        setIsUpdatingAnnouncement(prev => ({ ...prev, [announcementId]: true }));
+        try {
+            await markAnnouncementReadAction(session.access_token, announcementId);
+            setAnnouncements(prev => prev.map(ann => ann.id === announcementId ? { ...ann, is_read: true } : ann));
+        } catch (err) {
+            console.error(err);
+            alert("No se pudo actualizar el estado del anuncio.");
+        } finally {
+            setIsUpdatingAnnouncement(prev => ({ ...prev, [announcementId]: false }));
+        }
+    };
+
+    const handleHideAnnouncement = async (announcementId: string) => {
+        if (!session || !therapistInfo) return;
+        setIsUpdatingAnnouncement(prev => ({ ...prev, [announcementId]: true }));
+        try {
+            await hideAnnouncementAction(session.access_token, announcementId);
+            setAnnouncements(prev => prev.filter(ann => ann.id !== announcementId));
+        } catch (err) {
+            console.error(err);
+            alert("No se pudo ocultar el anuncio.");
+            setIsUpdatingAnnouncement(prev => ({ ...prev, [announcementId]: false }));
         }
     };
 
@@ -631,15 +668,41 @@ export default function TherapistDashboard() {
                                 </div>
                             ) : (
                                 announcements.map(ann => (
-                                    <div key={ann.id} className="glass-card" style={{ padding: '2rem', borderLeft: '4px solid var(--primary)' }}>
+                                    <div key={ann.id} className="glass-card" style={{ padding: '2rem', borderLeft: ann.is_read ? '2px solid rgba(0,0,0,0.1)' : '4px solid var(--primary)', opacity: ann.is_read ? 0.8 : 1 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                            <h2 style={{ fontSize: '1.4rem', margin: 0, color: 'var(--primary)' }}>{ann.title}</h2>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                <h2 style={{ fontSize: '1.4rem', margin: 0, color: ann.is_read ? 'var(--text-main)' : 'var(--primary)' }}>{ann.title}</h2>
+                                                {!ann.is_read && <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary-muted)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '50px', fontWeight: 'bold' }}>NUEVO</span>}
+                                            </div>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)', background: 'var(--bg-serene)', padding: '0.3rem 0.6rem', borderRadius: '50px' }}>
                                                 {new Date(ann.created_at).toLocaleDateString('es-CL')}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                                        <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.6', whiteSpace: 'pre-wrap', marginBottom: '1.5rem' }}>
                                             {ann.content}
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                                            {ann.is_read ? (
+                                                <button 
+                                                    onClick={() => handleHideAnnouncement(ann.id)}
+                                                    disabled={isUpdatingAnnouncement[ann.id]}
+                                                    style={{ background: 'none', border: 'none', color: 'var(--text-soft)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', transition: 'color 0.2s' }}
+                                                    onMouseOver={(e) => e.currentTarget.style.color = '#e74c3c'}
+                                                    onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-soft)'}
+                                                >
+                                                    {isUpdatingAnnouncement[ann.id] ? <CheckCircle size={16} /> : <XCircle size={16} />} 
+                                                    {isUpdatingAnnouncement[ann.id] ? 'Procesando...' : 'Ocultar aviso'}
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    className="premium-btn" 
+                                                    onClick={() => handleMarkAnnouncementAsRead(ann.id)}
+                                                    disabled={isUpdatingAnnouncement[ann.id]}
+                                                    style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                                >
+                                                    <CheckCircle size={16} /> {isUpdatingAnnouncement[ann.id] ? 'Marcando...' : 'Marcar como leído'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))

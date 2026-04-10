@@ -130,3 +130,44 @@ export async function saveProfileAction(accessToken: string, profileData: any) {
 
     return { success: true };
 }
+
+// Acción Segura: Marcar comunicado como leído
+export async function markAnnouncementReadAction(accessToken: string, announcementId: string) {
+    const supabase = createSecureClient(accessToken);
+    const therapistId = await authorizeTherapist(supabase);
+
+    // Intentamos hacer upsert
+    const { error } = await supabase
+        .from('therapist_announcements')
+        .upsert(
+            { announcement_id: announcementId, therapist_id: therapistId, is_read: true, is_hidden: false, read_at: new Date().toISOString() },
+            { onConflict: 'announcement_id, therapist_id' }
+        );
+
+    if (error) {
+        console.error("Error al marcar como leído:", error);
+        return { success: false, error: 'No se pudo procesar la acción' };
+    }
+
+    return { success: true };
+}
+
+// Acción Segura: Ocultar comunicado
+export async function hideAnnouncementAction(accessToken: string, announcementId: string) {
+    const supabase = createSecureClient(accessToken);
+    const therapistId = await authorizeTherapist(supabase);
+
+    // Actualizamos el registro existente para poner oculto = true
+    const { error } = await supabase
+        .from('therapist_announcements')
+        .update({ is_hidden: true })
+        .eq('announcement_id', announcementId)
+        .eq('therapist_id', therapistId);
+
+    if (error) {
+        console.error("Error al ocultar comunicado:", error);
+        return { success: false, error: 'No se pudo ocultar el aviso' };
+    }
+
+    return { success: true };
+}
