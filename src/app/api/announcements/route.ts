@@ -171,25 +171,35 @@ export async function POST(request: Request) {
         // Generar el HTML Premium
         const emailHtml = buildAnnouncementEmail(title, content);
 
-        const { error: resendError } = await resend.emails.send({
-          from: 'Psicólogos Ahora <hola@psicologosahora.cl>',
-          to: 'hola@psicologosahora.cl',
-          bcc: emailsList,
-          subject: title,
-          html: emailHtml
-        });
+        // Crear una promesa por cada email para que lleguen individuales (No en Bcc)
+        const emailPromises = emailsList.map(email => 
+          resend.emails.send({
+            from: 'Psicólogos Ahora <hola@psicologosahora.cl>',
+            to: email, // <--- Cada terapeuta recibe el correo con SU propio nombre/email en el "Para"
+            subject: title,
+            html: emailHtml
+          })
+        );
 
-        if (resendError) {
-          console.error("Resend Error al enviar a terapeutas:", resendError);
-          return NextResponse.json({ error: 'Comunicado guardado, pero falló el envío masivo.' }, { status: 500 });
+        // Esperar a que se envíen todos
+        const results = await Promise.all(emailPromises);
+        
+        // Verificar si alguno falló (Para reportar al admin)
+        const failedSends = results.filter(r => r.error);
+        
+        if (failedSends.length > 0) {
+          console.error("Resend Errors (Individuales):", failedSends);
+          const errorMessage = failedSends[0].error?.message || 'Error desconocido en Resend';
+          // Se guardó en DB, pero fallaron correos. Es crucial devolver el mensaje de Resend.
+          return NextResponse.json({ error: `Comunicado guardado, pero fallaron ${failedSends.length} correos. Error técnico: ${errorMessage}` }, { status: 500 });
         }
       }
     }
 
     return NextResponse.json({ message: 'Comunicado publicado exitosamente.', data: insertData }, { status: 200 });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error en API announcements:', error);
-    return NextResponse.json({ error: 'Error del servidor.' }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor detallado: ' + (error.message || String(error)) }, { status: 500 });
   }
 }

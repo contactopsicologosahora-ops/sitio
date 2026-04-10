@@ -65,7 +65,8 @@ export default function AdminDashboard() {
                 setAnnounceSendEmail(false);
                 setTimeout(() => setAnnounceSuccess(""), 4000);
             } else {
-                alert("Error al publicar el comunicado.");
+                const errData = await res.json().catch(() => null);
+                alert(errData?.error || "Error al publicar el comunicado.");
             }
         } catch (error) {
             console.error(error);
