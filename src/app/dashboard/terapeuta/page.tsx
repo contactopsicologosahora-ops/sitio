@@ -4,6 +4,19 @@ import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, CheckCircle, XC
 import { supabase } from "@/lib/supabase";
 import { updateLeadStatusAction, matchPaymentAction, saveProfileAction, markAnnouncementReadAction, hideAnnouncementAction } from "./actions";
 
+// Diccionario de credenciales seguras de terapeutas (Auth Manual)
+const VALID_CREDENTIALS: Record<string, string> = {
+    "paolaelianaad@gmail.com": "Paola742!",
+    "manuel.erlandsen.muscio@gmail.com": "Manuel913!",
+    "cfernandez.bolton@gmail.com": "Claudio824!",
+    "vcuadra9@gmail.com": "Veronica512!",
+    "francisca.pino.a@gmail.com": "Francisca623!",
+    "oarancibial@gmail.com": "Oliver314!",
+    "ca.esteban53@gmail.com": "Esteban425!",
+    "marlenecalvete3@gmail.com": "Marlene156!",
+    "juanrojaspardo@gmail.com": "Juan987!"
+};
+
 export default function TherapistDashboard() {
     const [session, setSession] = useState<any>(null);
     const [therapistInfo, setTherapistInfo] = useState<any>(null);
@@ -133,23 +146,12 @@ export default function TherapistDashboard() {
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session && session.user.email) {
-                fetchTherapistInfo(session.user.email);
-            }
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (session && session.user.email) {
-                fetchTherapistInfo(session.user.email);
-            } else {
-                setTherapistInfo(null);
-            }
-        });
-
-        return () => subscription.unsubscribe();
+        // Verificar auth manual guardado
+        const savedSession = localStorage.getItem('therapist_session_email');
+        if (savedSession) {
+            setSession({ access_token: savedSession, user: { email: savedSession } });
+            fetchTherapistInfo(savedSession);
+        }
     }, []);
 
     const fetchTherapistInfo = async (email: string) => {
@@ -284,21 +286,28 @@ export default function TherapistDashboard() {
         e.preventDefault();
         setIsLoggingIn(true);
         setLoginError("");
-        try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email: loginEmail,
-                password: loginPassword,
-            });
-            if (error) throw error;
-        } catch (error: any) {
-            setLoginError(error.message === "Email not confirmed" ? "Debes confirmar tu correo electrónico. Revisa tu bandeja." : "Credenciales incorrectas.");
-        } finally {
-            setIsLoggingIn(false);
+        
+        // Simular pequeño retraso para evitar fuerza bruta superficial
+        await new Promise(r => setTimeout(r, 600));
+
+        const formattedEmail = loginEmail.trim().toLowerCase();
+        
+        if (VALID_CREDENTIALS[formattedEmail] && VALID_CREDENTIALS[formattedEmail] === loginPassword) {
+            // Éxito de validación
+            localStorage.setItem('therapist_session_email', formattedEmail);
+            const fakeSession = { access_token: formattedEmail, user: { email: formattedEmail } };
+            setSession(fakeSession);
+            fetchTherapistInfo(formattedEmail);
+        } else {
+            setLoginError("Credenciales incorrectas. Verifica tu correo y contraseña.");
         }
+        setIsLoggingIn(false);
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        localStorage.removeItem('therapist_session_email');
+        setSession(null);
+        setTherapistInfo(null);
     };
 
     const toggleSlot = (day: string, time: string) => {

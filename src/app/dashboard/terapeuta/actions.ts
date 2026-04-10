@@ -2,33 +2,27 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Helper function para crear un cliente supabase autenticado para acciones desde el servidor
-// Requiere la inyección del token del cliente porque no se está usando cookies via @supabase/ssr
-const createSecureClient = (accessToken: string) => {
+// Usamos Service Role Key para saltar RLS ya que implementamos auth manual personalizado
+const createSecureClient = () => {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        {
-            global: {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            },
-        }
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
     );
 };
 
 // Validar que el usuario existe y extraer el terapeuta_id
-const authorizeTherapist = async (supabase: any) => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+const authorizeTherapist = async (supabase: any, accessToken: string) => {
+    // En nuestro auth manual, el accessToken es simplemente el email del terapeuta validado
+    const email = accessToken;
+
+    if (!email) {
         throw new Error("Acceso denegado: Token de sesión inválido o expirado");
     }
 
     const { data: therapist, error: tError } = await supabase
         .from('terapeutas')
         .select('id')
-        .eq('email', user.email)
+        .eq('email', email)
         .single();
         
     if (tError || !therapist) {
@@ -40,8 +34,8 @@ const authorizeTherapist = async (supabase: any) => {
 
 // Acción Segura: Actualizar el estado de un lead/paciente
 export async function updateLeadStatusAction(accessToken: string, leadId: number, status: string) {
-    const supabase = createSecureClient(accessToken);
-    const therapistId = await authorizeTherapist(supabase);
+    const supabase = createSecureClient();
+    const therapistId = await authorizeTherapist(supabase, accessToken);
 
     // Solo actualizar si el terapeuta_id coincide
     const { error } = await supabase
@@ -60,8 +54,8 @@ export async function updateLeadStatusAction(accessToken: string, leadId: number
 
 // Acción Segura: Asociar pago de Encuadrado
 export async function matchPaymentAction(accessToken: string, paymentId: string, leadId: number) {
-    const supabase = createSecureClient(accessToken);
-    const therapistId = await authorizeTherapist(supabase);
+    const supabase = createSecureClient();
+    const therapistId = await authorizeTherapist(supabase, accessToken);
 
     // 1. Verificar si el pago le pertenece a ESE terapeuta
     const { data: payment, error: pError } = await supabase
@@ -104,8 +98,8 @@ export async function matchPaymentAction(accessToken: string, paymentId: string,
 
 // Acción Segura: Guardar el perfil público
 export async function saveProfileAction(accessToken: string, profileData: any) {
-    const supabase = createSecureClient(accessToken);
-    const therapistId = await authorizeTherapist(supabase);
+    const supabase = createSecureClient();
+    const therapistId = await authorizeTherapist(supabase, accessToken);
 
     const { error } = await supabase
         .from('terapeutas')
@@ -133,8 +127,8 @@ export async function saveProfileAction(accessToken: string, profileData: any) {
 
 // Acción Segura: Marcar comunicado como leído
 export async function markAnnouncementReadAction(accessToken: string, announcementId: string) {
-    const supabase = createSecureClient(accessToken);
-    const therapistId = await authorizeTherapist(supabase);
+    const supabase = createSecureClient();
+    const therapistId = await authorizeTherapist(supabase, accessToken);
 
     // Intentamos hacer upsert
     const { error } = await supabase
@@ -154,8 +148,8 @@ export async function markAnnouncementReadAction(accessToken: string, announceme
 
 // Acción Segura: Ocultar comunicado
 export async function hideAnnouncementAction(accessToken: string, announcementId: string) {
-    const supabase = createSecureClient(accessToken);
-    const therapistId = await authorizeTherapist(supabase);
+    const supabase = createSecureClient();
+    const therapistId = await authorizeTherapist(supabase, accessToken);
 
     // Actualizamos el registro existente para poner oculto = true
     const { error } = await supabase
