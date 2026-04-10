@@ -165,3 +165,71 @@ export async function hideAnnouncementAction(accessToken: string, announcementId
 
     return { success: true };
 }
+
+// ==== ACCIONES DE LECTURA (Bypass RLS) ====
+export async function getTherapistInfoAction(accessToken: string) {
+    const supabase = createSecureClient();
+    try {
+        const therapistId = await authorizeTherapist(supabase, accessToken);
+        const { data, error } = await supabase.from('terapeutas').select('id, name, email, image, price, title, bio, tags, education, impact, methodology, quote, button_text, duration').eq('id', therapistId).single();
+        if (error) throw error;
+        return { success: true, data };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getLeadsAction(accessToken: string) {
+    const supabase = createSecureClient();
+    try {
+        const therapistId = await authorizeTherapist(supabase, accessToken);
+        let { data, error } = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('therapist_id', therapistId).order('created_at', { ascending: false });
+        if (error) {
+            const fallback = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('terapeuta_id', therapistId).order('created_at', { ascending: false });
+            if (fallback.data) data = fallback.data;
+        }
+        return { success: true, data: data || [] };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getPendingPaymentsAction(accessToken: string) {
+    const supabase = createSecureClient();
+    try {
+        const therapistId = await authorizeTherapist(supabase, accessToken);
+        const { data, error } = await supabase
+            .from('payments')
+            .select('id, amount, encuadrado_patient_name, encuadrado_patient_email, payment_date')
+            .eq('status', 'pending_match')
+            .eq('therapist_id', therapistId)
+            .order('created_at', { ascending: false });
+        return { success: true, data: data || [] };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getAnnouncementsAction(accessToken: string) {
+     const supabase = createSecureClient();
+     try {
+         const therapistId = await authorizeTherapist(supabase, accessToken);
+         const { data, error } = await supabase
+                .from('announcements')
+                .select(`
+                    *,
+                    therapist_announcements(is_read, is_hidden, therapist_id)
+                `)
+                .order('created_at', { ascending: false });
+         if (data && !error) {
+                const mappedAnnouncements = data.map((ann: any) => {
+                    const status = ann.therapist_announcements?.find((s: any) => s.therapist_id === therapistId) || {};
+                    return { ...ann, is_read: status.is_read || false, is_hidden: status.is_hidden || false };
+                }).filter((ann: any) => !ann.is_hidden);
+                return { success: true, data: mappedAnnouncements };
+         }
+         return { success: true, data: [] };
+     } catch (e: any) {
+         return { success: false, error: e.message };
+     }
+}

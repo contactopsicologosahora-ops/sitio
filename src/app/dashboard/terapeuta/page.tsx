@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { User, TrendingUp, Calendar, Users, Clock, ArrowUpRight, CheckCircle, XCircle, Edit2, Award, X, Search, Mail, Phone, MapPin, Activity, DollarSign, AlertCircle, LogOut, ChevronRight, Video, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { updateLeadStatusAction, matchPaymentAction, saveProfileAction, markAnnouncementReadAction, hideAnnouncementAction } from "./actions";
+import { getTherapistInfoAction, getLeadsAction, getPendingPaymentsAction, getAnnouncementsAction, updateLeadStatusAction, matchPaymentAction, saveProfileAction, markAnnouncementReadAction, hideAnnouncementAction } from "./actions";
 
 // Diccionario de credenciales seguras de terapeutas (Auth Manual)
 const VALID_CREDENTIALS: Record<string, string> = {
@@ -155,9 +155,11 @@ export default function TherapistDashboard() {
     }, []);
 
     const fetchTherapistInfo = async (email: string) => {
+        setIsLoadingLeads(true);
         try {
-            const { data, error } = await supabase.from('terapeutas').select('id, name, email, image, price, title, bio, tags, education, impact, methodology, quote, button_text, duration').eq('email', email).single();
-            if (data && !error) {
+            const result = await getTherapistInfoAction(email);
+            if (result.success && result.data) {
+                const data = result.data;
                 setTherapistInfo(data);
                 setProfile({ 
                     price: data.price || '', 
@@ -171,27 +173,26 @@ export default function TherapistDashboard() {
                     button_text: data.button_text || 'Agendar Evaluación de Ingreso',
                     duration: data.duration || '50 min'
                 });
-                fetchLeads(data.id);
+                fetchLeads(email);
                 fetchAvailability(data.id);
                 fetchGoogleStatus(data.id);
-                fetchPendingPayments(data.id);
-                fetchAnnouncements(data.id);
+                fetchPendingPayments(email);
+                fetchAnnouncements(email);
             } else {
-                console.error("No therapist found for email", email);
+                console.error("No therapist found for email:", email, result.error);
             }
         } catch (error) {
             console.error("Error fetching therapist info:", error);
+        } finally {
+            setIsLoadingLeads(false);
         }
     };
 
-    const fetchLeads = async (tId: number) => {
+    const fetchLeads = async (email: string) => {
         try {
-            const { data, error } = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('therapist_id', tId).order('created_at', { ascending: false });
-            if (error) {
-                const fallback = await supabase.from('leads').select('id, name, email, phone, status, theme, sessions, created_at').eq('terapeuta_id', tId).order('created_at', { ascending: false });
-                if (fallback.data) setLeads(fallback.data);
-            } else if (data) {
-                setLeads(data);
+            const result = await getLeadsAction(email);
+            if (result.success && result.data) {
+                setLeads(result.data);
             }
         } catch (error) {
             console.error("Exception fetching leads:", error);
@@ -220,35 +221,22 @@ export default function TherapistDashboard() {
         } catch (e) {}
     };
 
-    const fetchPendingPayments = async (tId: number) => {
+    const fetchPendingPayments = async (email: string) => {
         try {
-            const { data, error } = await supabase
-                .from('payments')
-                .select('id, amount, encuadrado_patient_name, encuadrado_patient_email, payment_date')
-                .eq('status', 'pending_match')
-                .eq('therapist_id', tId)
-                .order('created_at', { ascending: false });
-            if (data && !error) setPendingPayments(data);
+            const result = await getPendingPaymentsAction(email);
+            if (result.success && result.data) {
+                setPendingPayments(result.data);
+            }
         } catch (error) {
             console.error("Error fetching payments:", error);
         }
     };
 
-    const fetchAnnouncements = async (tId: number) => {
+    const fetchAnnouncements = async (email: string) => {
         try {
-            const { data, error } = await supabase
-                .from('announcements')
-                .select(`
-                    *,
-                    therapist_announcements(is_read, is_hidden, therapist_id)
-                `)
-                .order('created_at', { ascending: false });
-            if (data && !error) {
-                const mappedAnnouncements = data.map((ann: any) => {
-                    const status = ann.therapist_announcements?.find((s: any) => s.therapist_id === tId) || {};
-                    return { ...ann, is_read: status.is_read || false, is_hidden: status.is_hidden || false };
-                }).filter((ann: any) => !ann.is_hidden);
-                setAnnouncements(mappedAnnouncements);
+            const result = await getAnnouncementsAction(email);
+            if (result.success && result.data) {
+                setAnnouncements(result.data as TherapistAnnouncement[]);
             }
         } catch (error) {
             console.error("Error fetching announcements:", error);
