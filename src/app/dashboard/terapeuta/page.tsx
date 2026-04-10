@@ -233,7 +233,7 @@ export default function TherapistDashboard() {
         try {
             const result = await getAnnouncementsAction(email);
             if (result.success && result.data) {
-                setAnnouncements(result.data as TherapistAnnouncement[]);
+                setAnnouncements(result.data);
             }
         } catch (error) {
             console.error("Error fetching announcements:", error);
