@@ -32,6 +32,7 @@ export default function Navbar() {
             <ul style={{ display: 'flex', gap: '2.5rem', listStyle: 'none', alignItems: 'center' }}>
                 <li><Link href="/" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'inherit', textDecoration: 'none' }}>Inicio</Link></li>
                 <li><Link href="/terapeutas" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'inherit', textDecoration: 'none' }}>Expertos</Link></li>
+                <li><Link href="/blog" style={{ fontSize: '0.95rem', fontWeight: '500', color: 'inherit', textDecoration: 'none' }}>Blog</Link></li>
                 
                 {/* Dropdown de Ingresar */}
                 <li 

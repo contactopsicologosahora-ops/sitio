@@ -574,3 +574,28 @@ h3,
 .action-btn-subtle.success:hover { color: #198754; background: #e8f5e9; }
 .action-btn-subtle.danger:hover { color: #dc3545; background: #fce4e4; }
 .action-btn-subtle.info:hover { color: #0d6efd; background: #e7f1ff; }
+
+/* ========================================= */
+/* BLOG CONTENT FORMATTING                  */
+/* ========================================= */
+.blog-content p {
+  margin-bottom: 1.5rem;
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: #333;
+}
+.blog-content h3 {
+  font-size: 1.7rem;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  color: var(--primary);
+  line-height: 1.3;
+}
+.blog-content em {
+  font-style: normal;
+  color: var(--primary);
+  font-weight: 500;
+  background-color: #f4f6f8;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
