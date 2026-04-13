@@ -37,25 +37,7 @@ export default function BlogIndex() {
                     }}>
                         {blogPosts.map((post) => (
                             <Link href={`/blog/${post.slug}`} key={post.id} style={{ textDecoration: 'none', color: 'inherit' }}>
-                                <article style={{
-                                    backgroundColor: "white",
-                                    borderRadius: "16px",
-                                    overflow: "hidden",
-                                    boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
-                                    transition: "transform 0.3s ease, boxShadow 0.3s ease",
-                                    height: "100%",
-                                    display: "flex",
-                                    flexDirection: "column"
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-5px)';
-                                    e.currentTarget.style.boxShadow = '0 15px 40px rgba(0,0,0,0.08)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)';
-                                }}
-                                >
+                                <article className="blog-card">
                                     <div style={{ 
                                         height: "220px", 
                                         backgroundImage: `url(${post.image})`,
