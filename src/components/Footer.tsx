@@ -26,8 +26,6 @@ export default function Footer() {
                     </ul>
                 </div>
 
-                </div>
-                
                 <div>
                     <h4 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'white' }}>Legal</h4>
                     <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
