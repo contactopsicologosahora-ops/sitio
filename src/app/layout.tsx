@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import { Inter, Lora } from "next/font/google";
+import Script from "next/script";
 import Navbar from "@/components/Navbar";
 import "./globals.css";
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const lora = Lora({ subsets: ['latin'], variable: '--font-serif', style: ['normal', 'italic'] });
 
 export const metadata: Metadata = {
     title: "Psicólogos Ahora | Centro de Excelencia Psicoterapéutica",
@@ -49,12 +54,18 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="es">
+        <html lang="es" className={`${inter.variable} ${lora.variable}`}>
             <head>
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-                <script
+                <Script
+                    id="organization-schema"
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+                />
+            </head>
+            <body>
+                <Script
+                    id="google-tag-manager"
+                    strategy="afterInteractive"
                     dangerouslySetInnerHTML={{
                         __html: `
                         (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -65,12 +76,7 @@ export default function RootLayout({
                         `,
                     }}
                 />
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-                />
-            </head>
-            <body>
+                
                 <noscript>
                     <iframe
                         src="https://www.googletagmanager.com/ns.html?id=GTM-KZLGLTCL"

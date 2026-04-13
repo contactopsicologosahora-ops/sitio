@@ -25,9 +25,7 @@
   --radius-md: 16px;
   --radius-lg: 24px;
 
-  /* Modern Typography Mix */
-  --font-serif: 'Lora', serif;
-  --font-sans: 'Inter', sans-serif;
+  /* Modern Typography Mix via Next Font */
 }
 
 * {
