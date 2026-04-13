@@ -26,6 +26,16 @@ export default function Footer() {
                     </ul>
                 </div>
 
+                </div>
+                
+                <div>
+                    <h4 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'white' }}>Legal</h4>
+                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                        <li><Link href="/terminos-y-condiciones" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>Términos y Ética</Link></li>
+                        <li><Link href="/privacidad" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>Privacidad de Datos</Link></li>
+                    </ul>
+                </div>
+
                 <div>
                     <h4 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'white' }}>Contacto</h4>
                     <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>

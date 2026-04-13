@@ -1,7 +1,8 @@
 "use client";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Home } from "lucide-react";
-import Link from "next/link";import { Suspense } from "react";
+import Link from "next/link";
 
 export default function GraciasAgendamiento() {
     return (
@@ -14,6 +15,17 @@ export default function GraciasAgendamiento() {
 function GraciasAgendamientoContent() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).dataLayer) {
+            (window as any).dataLayer.push({
+                event: 'conversion_success',
+                conversion_type: 'appointment',
+                therapist_id: therapistId,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }, [therapistId]);
 
     return (
         <div className="animate-fade" style={{ backgroundColor: 'var(--bg-serene)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>

@@ -113,8 +113,8 @@ export default function RootLayout({
                         <div>
                             <h4 style={{ marginBottom: '1rem', color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal</h4>
                             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                <li><a href="#" style={{ color: 'var(--text-soft)' }}>Ética Profesional</a></li>
-                                <li><a href="#" style={{ color: 'var(--text-soft)' }}>Privacidad</a></li>
+                                <li><a href="/terminos-y-condiciones" style={{ color: 'var(--text-soft)' }}>Ética y Términos</a></li>
+                                <li><a href="/privacidad" style={{ color: 'var(--text-soft)' }}>Privacidad</a></li>
                             </ul>
                         </div>
                     </div>
