@@ -162,7 +162,7 @@ function TherapistCard({ t, handleBookNow }: { t: any, handleBookNow: any }) {
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: 'auto' }}>
-                    {t.tags.map((tag: string) => (
+                    {Array.isArray(t.tags) && t.tags.map((tag: string) => (
                         <span key={tag} className="tag-pill">
                             {tag}
                         </span>
