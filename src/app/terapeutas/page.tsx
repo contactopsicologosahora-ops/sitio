@@ -234,17 +234,20 @@ export default function Terapeutas() {
                         return {
                             ...baseT,
                             ...dbMatch,
+                            name: baseT.name, // El nombre base siempre manda para consistencia visual
                             price: baseT.name.includes("Juan Rojas") ? "$55.000 / Individual" : "$40.000 / Individual",
-                            // Campos de seguridad que nunca deberían ser nulos en el componente:
-                            metrics: dbMatch.metrics || baseT.metrics,
+                            metrics: dbMatch.metrics || baseT.metrics || { supervisionAttendance: true, weeklyAvailabilityHours: 20, seniorityMonths: 6, patientAdherence: 80 },
                             image: dbMatch.image || baseT.image,
-                            tags: dbMatch.tags || baseT.tags,
-                            rating: dbMatch.rating || baseT.rating
+                            tags: dbMatch.tags || baseT.tags || [],
+                            rating: typeof dbMatch.rating === 'number' ? dbMatch.rating : baseT.rating
                         };
                     });
                     
-                    // Añadimos también cualquier terapeuta nuevo exclusivo de DB
-                    const newTherapists = data.filter(d => !TERAPEUTAS.some(baseT => baseT.id === d.id));
+                    // Añadimos también cualquier terapeuta nuevo exclusivo de DB, pero filtrando los que no tengan nombre
+                    const newTherapists = data
+                        .filter(d => !TERAPEUTAS.some(baseT => baseT.id === d.id))
+                        .filter(d => d.name && d.name.trim() !== ""); // SEGURIDAD: Filtrar si no hay nombre
+                        
                     setTerapeutasList([...mergedList, ...newTherapists]);
                 }
             } catch (error) {

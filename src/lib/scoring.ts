@@ -38,7 +38,8 @@ export function calculateTherapistScore(therapist: TherapistWithMetrics): number
 
     // Manual Overrides requested by User:
     // "siempre deben estar un poco más arriba Esteban, paola y manuel."
-    const nameLower = therapist.name.toLowerCase();
+    // Seguridad: Si no hay nombre, no podemos aplicar bonus pero tampoco debemos crashear
+    const nameLower = (therapist?.name || "").toLowerCase();
     
     if (nameLower.includes("esteban") || nameLower.includes("paola") || nameLower.includes("manuel")) {
         score += 100; // Gran bono para asegurar los primeros lugares
@@ -49,5 +50,5 @@ export function calculateTherapistScore(therapist: TherapistWithMetrics): number
         score -= 50; // Penalización para asegurar que aparezcan más abajo
     }
 
-    return score;
+    return isNaN(score) ? 0 : score;
 }
