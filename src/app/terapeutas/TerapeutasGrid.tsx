@@ -4,6 +4,7 @@ import { Star, ShieldCheck, Clock, ArrowRight, User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { therapistsData } from "@/lib/therapists";
 
 // Dynamic import with custom loading state for better UX and First Load JS optimization
@@ -37,7 +38,7 @@ function TherapistCard({ t, handleBookNow }: { t: any, handleBookNow: any }) {
                     src={t.image || "/placeholder.png"} 
                     alt={t.name} 
                     fill
-                    style={{ objectFit: 'cover', zIndex: 0 }} 
+                    style={{ objectFit: 'contain', objectPosition: 'bottom center', zIndex: 0 }} 
                     className="ultra-img"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     unoptimized={isExternal}
@@ -117,9 +118,9 @@ function TherapistCard({ t, handleBookNow }: { t: any, handleBookNow: any }) {
                     <button onClick={() => handleBookNow(t)} className="btn-reserve">
                         RESERVAR AHORA <ArrowRight size={16} />
                     </button>
-                    <Link href={`/terapeutas/${t.id}`} className="btn-profile" title="Ver perfil completo">
+                    {/* <Link href={`/terapeutas/${t.id}`} className="btn-profile" title="Ver perfil completo">
                         <User size={20} className="icon-grow" />
-                    </Link>
+                    </Link> */}
                 </div>
             </div>
         </div>
@@ -143,17 +144,18 @@ export default function TerapeutasGrid({ terapeutasList }: { terapeutasList: any
                 ))}
             </div>
 
-            {selectedTherapist && (
+            {selectedTherapist && typeof document !== 'undefined' && createPortal(
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
                     backgroundColor: 'rgba(45, 62, 64, 0.4)', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)'
+                    justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(8px)'
                 }}>
                     <BookingFlow
                         therapist={selectedTherapist}
                         onClose={closeModal}
                     />
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );

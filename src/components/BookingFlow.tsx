@@ -31,7 +31,28 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
   // Disponibilidad de calendario
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
-  const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  
+  const generateNextDays = (numDays = 14) => {
+    const dates = [];
+    const today = new Date();
+    const daysStr = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    for (let i = 0; i < numDays; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const dayName = daysStr[d.getDay()];
+        const dateNum = d.getDate().toString().padStart(2, '0');
+        const monthNum = (d.getMonth() + 1).toString().padStart(2, '0');
+        dates.push({
+            id: `${dayName} ${dateNum}/${monthNum}`,
+            dayOfWeek: dayName,
+            label: `${dayName} ${dateNum}`
+        });
+    }
+    return dates;
+  };
+
+  const [realDates] = useState(() => generateNextDays(14));
   const [activeDayTab, setActiveDayTab] = useState<string>('');
 
   useEffect(() => {
@@ -49,23 +70,31 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
         const response = await fetch(`/api/availability?therapistId=${therapist?.id || 1}`);
         if (response.ok) {
           const data = await response.json();
-          setAvailability(data);
+          const avail = data.availability || data;
+          const booked = data.bookedSlots || [];
           
-          // Set primary tab to the first day with availability
-          const firstAvailDay = days.find(d => data[d] && data[d].length > 0);
-          if (firstAvailDay) setActiveDayTab(firstAvailDay);
-          else setActiveDayTab('Lun');
+          setAvailability(avail);
+          setBookedSlots(booked);
+          
+          // Set primary tab to the first real date with availability
+          const firstAvailDate = realDates.find(d => {
+              const times = avail[d.dayOfWeek] || [];
+              const availableTimes = times.filter((t: string) => !booked.includes(`${d.id} a las ${t}`));
+              return availableTimes.length > 0;
+          });
+          if (firstAvailDate) setActiveDayTab(firstAvailDate.id);
+          else setActiveDayTab(realDates[0].id);
         } else {
           // Fallback if API doesn't exist yet
           const fallbackData = { 'Lun': ['09:00', '11:00', '15:00'], 'Mie': ['10:00', '16:00'], 'Vie': ['09:00', '12:00'] };
           setAvailability(fallbackData);
-          setActiveDayTab('Lun');
+          setActiveDayTab(realDates[0].id);
         }
       } catch (error) {
         console.error("Error fetching availability:", error);
         const fallbackData = { 'Lun': ['09:00', '11:00', '15:00'], 'Mie': ['10:00', '16:00'], 'Vie': ['09:00', '12:00'] };
         setAvailability(fallbackData);
-        setActiveDayTab('Lun');
+        setActiveDayTab(realDates[0].id);
       }
     };
     
@@ -305,13 +334,16 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
             
             {/* Day Selector */}
             <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '1rem', borderBottom: '1px solid #eaeaea', marginBottom: '1.5rem' }}>
-              {days.map(day => {
-                const hasSlots = availability[day] && availability[day].length > 0;
-                const isActive = activeDayTab === day;
+              {realDates.map(dateObj => {
+                const times = availability[dateObj.dayOfWeek] || [];
+                const availableTimes = times.filter(t => !bookedSlots.includes(`${dateObj.id} a las ${t}`));
+                const hasSlots = availableTimes.length > 0;
+                const isActive = activeDayTab === dateObj.id;
+                
                 return (
                   <button
-                    key={day}
-                    onClick={() => hasSlots && setActiveDayTab(day)}
+                    key={dateObj.id}
+                    onClick={() => hasSlots && setActiveDayTab(dateObj.id)}
                     style={{
                       padding: '0.7rem 1.2rem',
                       borderRadius: '50px',
@@ -320,11 +352,12 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
                       color: isActive ? '#fff' : (hasSlots ? 'var(--text-main)' : '#ccc'),
                       border: `1px solid ${isActive ? 'var(--primary)' : '#eaeaea'}`,
                       cursor: hasSlots ? 'pointer' : 'not-allowed',
-                      minWidth: '80px',
-                      transition: 'all 0.2s'
+                      minWidth: '100px',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    {day}
+                    {dateObj.label}
                   </button>
                 );
               })}
@@ -332,40 +365,47 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
 
             {/* Time Slots for Selected Day */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.8rem', maxHeight: '200px', overflowY: 'auto' }}>
-              {activeDayTab && availability[activeDayTab] ? (
-                availability[activeDayTab].map(time => {
-                   const isSelected = formData.selectedDay === activeDayTab && formData.selectedHour === time;
-                   return (
-                     <button
-                       key={time}
-                       onClick={() => {
-                         setFormData({ ...formData, selectedDay: activeDayTab, selectedHour: time });
-                         setTimeout(() => handleNext(), 400); // Auto-advance
-                       }}
-                       style={{
-                         padding: '1rem',
-                         borderRadius: '8px',
-                         background: isSelected ? 'rgba(243, 156, 18, 0.1)' : '#fff',
-                         border: `2px solid ${isSelected ? 'var(--accent)' : '#eaeaea'}`,
-                         color: isSelected ? 'var(--accent)' : 'var(--primary)',
-                         fontWeight: '600',
-                         fontSize: '1.1rem',
-                         display: 'flex',
-                         alignItems: 'center',
-                         justifyContent: 'center',
-                         gap: '0.5rem',
-                         cursor: 'pointer',
-                         transition: 'all 0.2s'
-                       }}
-                     >
-                       {isSelected && <CheckCircle2 size={16} />}
-                       {time}
-                     </button>
-                   );
-                })
-              ) : (
-                <p style={{ color: 'var(--text-soft)', gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>No hay horarios disponibles para este día.</p>
-              )}
+              {(() => {
+                const activeDateObj = realDates.find(d => d.id === activeDayTab);
+                if (!activeDateObj) return null;
+                const times = availability[activeDateObj.dayOfWeek] || [];
+                const availableTimes = times.filter(t => !bookedSlots.includes(`${activeDateObj.id} a las ${t}`));
+                
+                if (availableTimes.length > 0) {
+                  return availableTimes.map(time => {
+                     const isSelected = formData.selectedDay === activeDayTab && formData.selectedHour === time;
+                     return (
+                       <button
+                         key={time}
+                         onClick={() => {
+                           setFormData({ ...formData, selectedDay: activeDayTab, selectedHour: time });
+                           setTimeout(() => handleNext(), 400); // Auto-advance
+                         }}
+                         style={{
+                           padding: '1rem',
+                           borderRadius: '8px',
+                           background: isSelected ? 'rgba(243, 156, 18, 0.1)' : '#fff',
+                           border: `2px solid ${isSelected ? 'var(--accent)' : '#eaeaea'}`,
+                           color: isSelected ? 'var(--accent)' : 'var(--primary)',
+                           fontWeight: '600',
+                           fontSize: '1.1rem',
+                           display: 'flex',
+                           alignItems: 'center',
+                           justifyContent: 'center',
+                           gap: '0.5rem',
+                           cursor: 'pointer',
+                           transition: 'all 0.2s'
+                         }}
+                       >
+                         {isSelected && <CheckCircle2 size={16} />}
+                         {time}
+                       </button>
+                     );
+                  });
+                } else {
+                  return <p style={{ color: 'var(--text-soft)', gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>No hay horarios disponibles para este día.</p>;
+                }
+              })()}
             </div>
           </div>
         )}

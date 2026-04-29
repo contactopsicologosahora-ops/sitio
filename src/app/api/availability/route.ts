@@ -2,8 +2,28 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
+import { createClient } from '@supabase/supabase-js';
 
 const DATA_FILE = path.join(process.cwd(), 'therapist_data.json');
+
+async function fetchBookedSlots(therapistId: string) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    
+    const { data, error } = await supabase
+        .from('leads')
+        .select('theme')
+        .eq('therapist_id', parseInt(therapistId))
+        .neq('status', 'Perdido')
+        .like('theme', 'Agendamiento Directo:%');
+        
+    if (error || !data) return [];
+    
+    return data.map(lead => {
+        const match = lead.theme.match(/Agendamiento Directo: (.+ a las \d{2}:\d{2})/);
+        return match ? match[1] : null;
+    }).filter(Boolean) as string[];
+}
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -43,8 +63,10 @@ export async function GET(request: Request) {
         else rawAvailability[d] = [];
     });
 
+    const bookedSlots = await fetchBookedSlots(therapistId);
+
     if (!therapistData.isGoogleConnected || !therapistData.googleTokens) {
-        return NextResponse.json(rawAvailability);
+        return NextResponse.json({ availability: rawAvailability, bookedSlots });
     }
 
     try {
@@ -90,12 +112,12 @@ export async function GET(request: Request) {
             fs.writeFileSync(DATA_FILE, JSON.stringify(allData, null, 2), 'utf-8');
         }
 
-        return NextResponse.json(finalAvailability);
+        return NextResponse.json({ availability: finalAvailability, bookedSlots });
         
     } catch (error) {
         console.error("Google Calendar Error:", error);
         // Fallback a disponibilidad de BD si falla GC
-        return NextResponse.json(rawAvailability);
+        return NextResponse.json({ availability: rawAvailability, bookedSlots });
     }
 }
 
