@@ -130,7 +130,7 @@ export async function getTerapeutasList() {
             const newTherapists = data
                 .filter(d => !TERAPEUTAS.some(baseT => baseT.id === d.id))
                 .filter(d => d.name && d.name.trim() !== "")
-                .filter(d => !d.name.toLowerCase().includes("claudio fernandez"));
+                .filter(d => !d.name.toLowerCase().includes("claudio"));
                 
             terapeutasList = [...mergedList, ...newTherapists];
         }

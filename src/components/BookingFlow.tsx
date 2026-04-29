@@ -470,10 +470,10 @@ export default function BookingFlow({ therapist, onClose }: BookingFlowProps) {
     <div className="glass-morphism animate-fade" style={{ 
       maxWidth: '600px', 
       width: '95%', 
-      padding: '4rem', 
+      padding: '2.5rem', 
       borderRadius: 'var(--radius-lg)', 
       position: 'relative',
-      minHeight: '500px',
+      minHeight: '400px',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center'

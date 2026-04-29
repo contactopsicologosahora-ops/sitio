@@ -138,7 +138,7 @@ export default function TerapeutasGrid({ terapeutasList }: { terapeutasList: any
 
     return (
         <>
-            <div style={{ padding: '4rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '3rem' }}>
+            <div style={{ padding: '4rem 8%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '3rem', boxSizing: 'border-box', overflowX: 'hidden' }}>
                 {terapeutasList.map(t => (
                     <TherapistCard key={t.id} t={t} handleBookNow={handleBookNow} />
                 ))}
@@ -147,13 +147,15 @@ export default function TerapeutasGrid({ terapeutasList }: { terapeutasList: any
             {selectedTherapist && typeof document !== 'undefined' && createPortal(
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    backgroundColor: 'rgba(45, 62, 64, 0.4)', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(8px)'
+                    backgroundColor: 'rgba(45, 62, 64, 0.4)', zIndex: 99999, backdropFilter: 'blur(8px)',
+                    overflowY: 'auto', display: 'flex', flexDirection: 'column'
                 }}>
-                    <BookingFlow
-                        therapist={selectedTherapist}
-                        onClose={closeModal}
-                    />
+                    <div style={{ margin: 'auto', padding: '2rem 1rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                        <BookingFlow
+                            therapist={selectedTherapist}
+                            onClose={closeModal}
+                        />
+                    </div>
                 </div>,
                 document.body
             )}
