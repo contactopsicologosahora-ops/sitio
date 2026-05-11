@@ -24,6 +24,8 @@ function GraciasDatosContent() {
                 therapist_id: therapistId,
                 timestamp: new Date().toISOString()
             });
+            // Evento de Google Ads (PÁGINA DE GRACIAS)
+            (window as any).gtag?.('event', 'conversion', {'send_to': 'AW-10794662283/ratyCMuQyuIDEIvzpZso'});
         }
     }, [therapistId]);
 
@@ -49,7 +51,11 @@ function GraciasDatosContent() {
 
                 <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
                     <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-                        ¿Tienes alguna duda urgente? <a href="#" style={{ color: 'var(--accent)', fontWeight: '600' }}>Contáctanos por WhatsApp</a>
+                        ¿Tienes alguna duda urgente? <a href="https://wa.me/56940618565" target="_blank" rel="noopener noreferrer" onClick={() => {
+                            if (typeof window !== 'undefined' && (window as any).gtag) {
+                                (window as any).gtag('event', 'conversion', {'send_to': 'AW-10794662283/PPc5CNLqtrUDEIvzpZso'});
+                            }
+                        }} style={{ color: 'var(--accent)', fontWeight: '600' }}>Contáctanos por WhatsApp</a>
                     </p>
                 </div>
             </div>

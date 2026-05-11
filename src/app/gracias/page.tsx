@@ -1,7 +1,8 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Calendar, MessageSquare, ArrowRight, Home } from "lucide-react";
-import Link from "next/link";import { Suspense } from "react";
+import Link from "next/link";
+import { Suspense, useEffect } from "react";
 
 export default function Gracias() {
     return (
@@ -14,6 +15,11 @@ export default function Gracias() {
 function GraciasContent() {
     const searchParams = useSearchParams();
     const therapistId = searchParams.get("therapistId");
+    useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).gtag) {
+            (window as any).gtag('event', 'conversion', {'send_to': 'AW-10794662283/ratyCMuQyuIDEIvzpZso'});
+        }
+    }, [therapistId]);
 
     return (
         <div className="animate-fade" style={{ backgroundColor: 'var(--bg-serene)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -41,7 +47,11 @@ function GraciasContent() {
 
                 <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
                     <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-                        ¿Tienes alguna duda urgente? <a href="#" style={{ color: 'var(--accent)', fontWeight: '600' }}>Contáctanos por WhatsApp</a>
+                        ¿Tienes alguna duda urgente? <a href="https://wa.me/56940618565" target="_blank" rel="noopener noreferrer" onClick={() => {
+                            if (typeof window !== 'undefined' && (window as any).gtag) {
+                                (window as any).gtag('event', 'conversion', {'send_to': 'AW-10794662283/PPc5CNLqtrUDEIvzpZso'});
+                            }
+                        }} style={{ color: 'var(--accent)', fontWeight: '600' }}>Contáctanos por WhatsApp</a>
                     </p>
                 </div>
             </div>

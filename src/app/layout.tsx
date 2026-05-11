@@ -86,6 +86,22 @@ export default function RootLayout({
                         style={{ display: "none", visibility: "hidden" }}
                     ></iframe>
                 </noscript>
+
+                {/* Google tag (gtag.js) */}
+                <Script async src="https://www.googletagmanager.com/gtag/js?id=AW-10794662283"></Script>
+                <Script
+                    id="google-ads-tag"
+                    strategy="afterInteractive"
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            window.dataLayer = window.dataLayer || [];
+                            function gtag(){dataLayer.push(arguments);}
+                            gtag('js', new Date());
+
+                            gtag('config', 'AW-10794662283');
+                        `,
+                    }}
+                />
                 
                 <ConditionalHeader />
                 
